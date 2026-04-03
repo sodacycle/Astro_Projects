@@ -6,7 +6,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 ### Core Functionality
 - **Recursive Directory Scanning**: Searches through selected directory and all subdirectories for FITS files
-- **Smart File Filtering**: Automatically excludes calibration files (those starting with " Stacked_\)
+- **Smart File Filtering**: Automatically excludes calibration files (those starting with  Stacked_)
 - **Custom FITS Parser**: Built-in header parser supporting both .fit and .fits extensions
 - **Target Extraction**: Intelligently extracts target names from filenames or FITS headers
 - **Metadata Aggregation**: Groups files by astronomical target and calculates total integration time
@@ -22,8 +22,8 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Progress Tracking**: Real-time progress bar with file count updates
 - **Cancelable Scans**: Stop button to abort long-running scans
 - **Dual Table Display**:
- - **Summary Table**: Target-level aggregation (file count, summed exposure time)
- - **Details Table**: Individual file metadata
+  - **Summary Table**: Target-level aggregation (file count, summed exposure time)
+  - **Details Table**: Individual file metadata
 - **Responsive Design**: Clean, readable tables with proper column headers
 
 ### Cross-Platform Support
@@ -42,123 +42,123 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 ### Windows
 
 1. **Install Node.js**:
- - Download from [nodejs.org](https://nodejs.org/)
- - Choose the LTS version for Windows
- - Run the installer and follow the setup wizard
+   - Download from [nodejs.org](https://nodejs.org/)
+   - Choose the LTS version for Windows
+   - Run the installer and follow the setup wizard
 
 2. **Clone/Download the Project**:
- `bash
- cd C:\Users\YourName\Documents
- git clone <repository-url> Astro_Projects
- cd Astro_Projects
- `
+   `
+   cd C:\Users\YourName\Documents
+   git clone <repository-url> Astro_Projects
+   cd Astro_Projects
+   `
 
 3. **Install Dependencies**:
- `bash
- npm install
- `
+   `
+   npm install
+   `
 
 4. **Run the Application**:
- `bash
- npm start
- `
+   `
+   npm start
+   `
 
 ### macOS
 
 1. **Install Node.js**:
- - Download from [nodejs.org](https://nodejs.org/)
- - Choose the LTS version for macOS
- - Open the .pkg file and follow the installation wizard
+   - Download from [nodejs.org](https://nodejs.org/)
+   - Choose the LTS version for macOS
+   - Open the .pkg file and follow the installation wizard
 
 2. **Clone/Download the Project**:
- `bash
- cd ~/Documents
- git clone <repository-url> Astro_Projects
- cd Astro_Projects
- `
+   `
+   cd ~/Documents
+   git clone <repository-url> Astro_Projects
+   cd Astro_Projects
+   `
 
 3. **Install Dependencies**:
- `bash
- npm install
- `
+   `
+   npm install
+   `
 
 4. **Run the Application**:
- `bash
- npm start
- `
+   `
+   npm start
+   `
 
 ### Linux (Ubuntu/Debian)
 
 1. **Install Node.js**:
- `bash
- curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
- sudo apt-get install -y nodejs
- `
+   `
+   curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+   `
 
 2. **Clone/Download the Project**:
- `bash
- cd ~/Documents
- git clone <repository-url> Astro_Projects
- cd Astro_Projects
- `
+   `
+   cd ~/Documents
+   git clone <repository-url> Astro_Projects
+   cd Astro_Projects
+   `
 
 3. **Install Dependencies**:
- `bash
- npm install
- `
+   `
+   npm install
+   `
 
 4. **Run the Application**:
- `bash
- npm start
- `
+   `
+   npm start
+   `
 
 ### Linux (CentOS/RHEL/Fedora)
 
 1. **Install Node.js**:
- `bash
- curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
- sudo yum install -y nodejs
- `
+   `
+   curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
+   sudo yum install -y nodejs
+   `
 
 2. **Clone/Download the Project**:
- `bash
- cd ~/Documents
- git clone <repository-url> Astro_Projects
- cd Astro_Projects
- `
+   `
+   cd ~/Documents
+   git clone <repository-url> Astro_Projects
+   cd Astro_Projects
+   `
 
 3. **Install Dependencies**:
- `bash
- npm install
- `
+   `
+   npm install
+   `
 
 4. **Run the Application**:
- `bash
- npm start
- `
+   `
+   npm start
+   `
 
 ## Usage
 
 ### Basic Operation
 
 1. **Launch the Application**:
- `bash
- npm start
- `
+   `
+   npm start
+   `
 
 2. **Select Directory**:
- - Click the Select Directory button
- - Choose a folder containing your FITS files
- - The app will recursively scan all subdirectories
+   - Click the Select Directory button
+   - Choose a folder containing your FITS files
+   - The app will recursively scan all subdirectories
 
 3. **Start Scanning**:
- - Click Scan FITS to begin processing
- - Watch the progress bar for real-time updates
- - Use Stop Scan to cancel if needed
+   - Click Scan FITS to begin processing
+   - Watch the progress bar for real-time updates
+   - Use Stop Scan to cancel if needed
 
 4. **View Results**:
- - **Summary Table**: Shows aggregated data per astronomical target
- - **Details Table**: Shows individual file metadata
+   - **Summary Table**: Shows aggregated data per astronomical target
+   - **Details Table**: Shows individual file metadata
 
 ### Understanding the Output
 
@@ -174,7 +174,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Start Time UTC / End Time UTC**: Observation start and calculated end times
 - **Exposure Time s**: Individual frame exposure time
 - **Number of Subs**: Number of sub-exposures stacked
-- **Total Exposure Time s**: Calculated total exposure (exposure ï¿½ subs)
+- **Total Exposure Time s**: Calculated total exposure (exposure × subs)
 - **Telescope**: Telescope model (falls back to camera if not available)
 - **Camera Model**: Camera model
 - **Sensor Temperature C**: Camera sensor temperature
@@ -223,8 +223,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 **Application Won't Start**
 - Ensure Node.js 16+ is installed: 
 ode --version
-- Clear node_modules and reinstall: 
-m -rf node_modules && npm install
+- Clear node_modules and reinstall: m -rf node_modules && npm install
 - Check for port conflicts (default Electron port)
 
 **No FITS Files Found**
@@ -257,31 +256,31 @@ m -rf node_modules && npm install
 ### Project Structure
 `
 Astro_Projects/
-+-- main.js # Electron main process
-+-- preload.js # Context bridge for IPC
-+-- renderer.js # UI event handling
-+-- fits-parser.js # Custom FITS header parser
-+-- index.html # Application UI
-+-- package.json # Dependencies and scripts
-+-- README.md # This file
++-- main.js              # Electron main process
++-- preload.js           # Context bridge for IPC
++-- renderer.js          # UI event handling
++-- fits-parser.js       # Custom FITS header parser
++-- index.html           # Application UI
++-- package.json         # Dependencies and scripts
++-- README.md            # This file
 `
 
 ### Building for Distribution
 
 **Windows Executable**:
-`bash
+`
 npm run pack
 npm run dist
 `
 
 **macOS Application**:
-`bash
+`
 npm run pack
 npm run dist
 `
 
 **Linux Binary**:
-`bash
+`
 npm run pack
 npm run dist
 `
