@@ -1,0 +1,35 @@
+{
+  "name": "fits-metadata-viewer",
+  "version": "1.0.0",
+  "description": "Cross-platform FITS metadata explorer (no Python)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.11"
+  },
+  "build": {
+    "appId": "com.astrophotography.fits-metadata-viewer",
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
