@@ -1,6 +1,7 @@
 const selectBtn = document.getElementById('selectDir');
 const scanBtn = document.getElementById('scanBtn');
 const stopBtn = document.getElementById('stopBtn');
+const organizeBtn = document.getElementById('organizeBtn');
 const pathDisp = document.getElementById('selectedPath');
 const status = document.getElementById('status');
 const progressContainer = document.getElementById('progressContainer');
@@ -71,13 +72,88 @@ scanBtn.addEventListener('click', async () => {
     'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
     'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software'
   ]);
+
+  organizeBtn.disabled = false;
+  removejpgBtn.disabled = false;
 });
 
 stopBtn.addEventListener('click', async () => {
-  await window.electronAPI.cancelScan();
+  await window.electronAPI.cancelAll();
   status.textContent = 'Cancel requested; waiting for the scan loop to stop...';
   stopBtn.disabled = true;
 });
+
+organizeBtn.addEventListener('click', async () => {
+  if (!selectedDirectory) {
+    status.textContent = 'Please select a directory first.';
+    return;
+  }
+
+  organizeBtn.disabled = true;
+  status.textContent = 'Organizing stacked files...';
+
+  const result = await window.electronAPI.organizeStacked(selectedDirectory);
+
+  if (result.error) {
+    status.textContent = `Error: ${result.error}`;
+  } else {
+    status.textContent = `${result.message}`;
+  }
+
+  organizeBtn.disabled = false;
+});
+
+//document.getElementById('removejpgBtn').addEventListener('click', async () => {
+//  const dir = await window.electronAPI.selectDirectory();
+//  if (!dir) return;
+
+//  const result = await window.electronAPI.removeJpg(dir);
+
+ // if (result.error) {
+ //   alert(`Error: ${result.error}`);
+//    return;
+ // }
+
+ // alert(`Deleted ${result.deletedCount} JPG/JPEG files.`);
+//});
+
+document.getElementById('removejpgBtn').addEventListener('click', async () => {
+  if (!currentDir) {
+    alert("Please select a directory first.");
+    return;
+  }
+
+  // Reset progress bar
+  const bar = document.getElementById('progressBar');
+  bar.value = 0;
+
+  window.electronAPI.onRemoveProgress((event, data) => {
+    bar.max = data.total;
+    bar.value = data.current;
+
+    const status = document.getElementById('statusText');
+    status.textContent = data.status;
+  });
+
+  const result = await window.electronAPI.removeJpg(currentDir);
+
+  if (result.error) {
+    alert(`Error: ${result.error}`);
+    return;
+  }
+
+  if (result.canceled) {
+    alert(`JPG removal canceled. Deleted ${result.deletedCount} files.`);
+    return;
+  }
+
+  alert(`Deleted ${result.deletedCount} JPG/JPEG files.`);
+
+  document.getElementById('stopBtn').addEventListener('click', () => {
+  window.electronAPI.cancelAll();
+});
+});
+
 
 function createTableHTML(data, columns) {
   if (!data || data.length === 0) return '<p>No data to show.</p>';
