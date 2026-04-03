@@ -69,7 +69,7 @@ scanBtn.addEventListener('click', async () => {
     'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
     'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
     'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
-    'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software', 'Raw Header'
+    'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software'
   ]);
 });
 

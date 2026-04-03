@@ -144,8 +144,7 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
         'Aperture mm': anyField(header, ['APERTURE'], 'Unknown'),
         'Focus Position': anyField(header, ['FOCUSPOS', 'FOCUS_POSITION'], 'Unknown'),
         'Image Type': anyField(header, ['IMAGETYP', 'IMTYPE'], 'Unknown'),
-        'Stacking Software': anyField(header, ['CREATOR', 'SOFTWARE', 'STACKING_SOFTWARE'], 'Unknown'),
-        'Raw Header': JSON.stringify(header)
+        'Stacking Software': anyField(header, ['CREATOR', 'SOFTWARE', 'STACKING_SOFTWARE'], 'Unknown')
       });
     } catch (err) {
       console.error('Failed to parse FITS', filePath, err);

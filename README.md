@@ -188,7 +188,6 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Focus Position**: Focus motor position
 - **Image Type**: Type of image (Light, Dark, Flat, etc.)
 - **Stacking Software**: Software used for stacking
-- **Raw Header**: Complete FITS header as JSON
 
 ## Technical Details
 
