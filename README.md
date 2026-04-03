@@ -47,21 +47,21 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
    - Run the installer and follow the setup wizard
 
 2. **Clone/Download the Project**:
-   `
+   ```bash
    cd C:\Users\YourName\Documents
    git clone <repository-url> Astro_Projects
    cd Astro_Projects
-   `
+   ```
 
 3. **Install Dependencies**:
-   `
+   ```bash
    npm install
-   `
+   ```
 
 4. **Run the Application**:
-   `
+   ```bash
    npm start
-   `
+   ```
 
 ### macOS
 
@@ -71,80 +71,80 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
    - Open the .pkg file and follow the installation wizard
 
 2. **Clone/Download the Project**:
-   `
+   ```bash
    cd ~/Documents
    git clone <repository-url> Astro_Projects
    cd Astro_Projects
-   `
+   ```
 
 3. **Install Dependencies**:
-   `
+   ```bash
    npm install
-   `
+   ```
 
 4. **Run the Application**:
-   `
+   ```bash
    npm start
-   `
+   ```
 
 ### Linux (Ubuntu/Debian)
 
 1. **Install Node.js**:
-   `
+   ```bash
    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
    sudo apt-get install -y nodejs
-   `
+   ```
 
 2. **Clone/Download the Project**:
-   `
+   ```bash
    cd ~/Documents
    git clone <repository-url> Astro_Projects
    cd Astro_Projects
-   `
+   ```
 
 3. **Install Dependencies**:
-   `
+   ```bash
    npm install
-   `
+   ```
 
 4. **Run the Application**:
-   `
+   ```bash
    npm start
-   `
+   ```
 
 ### Linux (CentOS/RHEL/Fedora)
 
 1. **Install Node.js**:
-   `
+   ```bash
    curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
    sudo yum install -y nodejs
-   `
+   ```
 
 2. **Clone/Download the Project**:
-   `
+   ```bash
    cd ~/Documents
    git clone <repository-url> Astro_Projects
    cd Astro_Projects
-   `
+   ```
 
 3. **Install Dependencies**:
-   `
+   ```bash
    npm install
-   `
+   ```
 
 4. **Run the Application**:
-   `
+   ```bash
    npm start
-   `
+   ```
 
 ## Usage
 
 ### Basic Operation
 
 1. **Launch the Application**:
-   `
+   ```bash
    npm start
-   `
+   ```
 
 2. **Select Directory**:
    - Click the Select Directory button
@@ -174,7 +174,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Start Time UTC / End Time UTC**: Observation start and calculated end times
 - **Exposure Time s**: Individual frame exposure time
 - **Number of Subs**: Number of sub-exposures stacked
-- **Total Exposure Time s**: Calculated total exposure (exposure × subs)
+- **Total Exposure Time s**: Calculated total exposure (exposure ï¿½ subs)
 - **Telescope**: Telescope model (falls back to camera if not available)
 - **Camera Model**: Camera model
 - **Sensor Temperature C**: Camera sensor temperature
@@ -223,7 +223,8 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 **Application Won't Start**
 - Ensure Node.js 16+ is installed: 
 ode --version
-- Clear node_modules and reinstall: m -rf node_modules && npm install
+- Clear node_modules and reinstall: 
+m -rf node_modules && npm install
 - Check for port conflicts (default Electron port)
 
 **No FITS Files Found**
@@ -254,7 +255,7 @@ ode --version
 ## Development
 
 ### Project Structure
-`
+```text
 Astro_Projects/
 +-- main.js              # Electron main process
 +-- preload.js           # Context bridge for IPC
@@ -263,27 +264,27 @@ Astro_Projects/
 +-- index.html           # Application UI
 +-- package.json         # Dependencies and scripts
 +-- README.md            # This file
-`
+```
 
 ### Building for Distribution
 
 **Windows Executable**:
-`
+```bash
 npm run pack
 npm run dist
-`
+```
 
 **macOS Application**:
-`
+```bash
 npm run pack
 npm run dist
-`
+```
 
 **Linux Binary**:
-`
+```bash
 npm run pack
 npm run dist
-`
+```
 
 ### Dependencies
 - **Electron**: Cross-platform desktop framework
