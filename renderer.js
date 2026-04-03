@@ -66,7 +66,10 @@ scanBtn.addEventListener('click', async () => {
 
   summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Summed Integration Time s']);
   detailsArea.innerHTML = createTableHTML(result.metadataList, [
-    'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s', 'Telescope', 'Camera Model'
+    'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
+    'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
+    'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
+    'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software', 'Raw Header'
   ]);
 });
 
