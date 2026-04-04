@@ -210,7 +210,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Target**: Astronomical object name (extracted from filename or header)
 - **FITS Count**: Total number of FITS files for this target
 - **Files With Exposure**: Number of files with valid exposure time data
-- **Summed Integration Time s**: Total exposure time across all files
+- **Total Integration Time**: Total exposure time across all files in HH:MM:SS Format
 
 #### Details Table Columns
 - **File**: Filename
