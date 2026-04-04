@@ -174,28 +174,28 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 5. **Organize Stacked Files**:
     - Click Organize Stacked Files
-        - The app will:
+     - The app will:
             - Find all `Stacked_*.fit` files
-         - Extract target names
+            - Extract target names
             - Create a `Stacked_/<Target Name>/` folder structure
             - Copy each stacked file into its matching target folder
 
 6. **Remove JPG Files**:
     - Click `Remove .jpg FIles`
-    - The app will:
-        - Recursively find all .jpg and .jpeg files
-        - Delete them while showing progress
-        - Allow cancellation via the Stop button
+     - The app will:
+      - Recursively find all `.jpg` and `.jpeg` files
+      - Delete them while showing progress
+      - Allow cancellation via the Stop button
 
 7. **Siril Prep**:
     - Click `Siril Prep`
     - The app will:
-        - Recursively scan the selected directory and all subdirectories
-        - Find every file whose name begins with `Light`
-        - Create a new subdirectory named `lights` inside each folder where Light files are found
-        - Move each Light file into its corresponding `lights` subdirectory
-        - Display real-time progress updates using the same progress bar used for JPG removal
-        - Allow cancellation at any time using the Stop button
+     - Recursively scan the selected directory and all subdirectories
+     - Find every file whose name begins with `Light`
+     - Create a new subdirectory named `lights` inside each folder where Light files are found
+     - Move each Light file into its corresponding `lights` subdirectory
+     - Display real-time progress updates using the same progress bar used for JPG removal
+     - Allow cancellation at any time using the Stop button
 
 ### Understanding the Output
 
