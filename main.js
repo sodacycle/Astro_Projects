@@ -35,12 +35,14 @@ ipcMain.handle('select-directory', async () => {
 
 function walkDirectory(dir, filelist = []) {
   const files = fs.readdirSync(dir);
-  files.forEach((file) => {
+    files.forEach((file) => {
     const fullPath = path.join(dir, file);
     const stats = fs.statSync(fullPath);
+    const isFits = (/\.fit$|\.fits$/i.test(file));
+    const isStacked = file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_');
     if (stats.isDirectory()) {
       walkDirectory(fullPath, filelist);
-    } else if (/\.fit$|\.fits$/i.test(file) && !file.startsWith('Stacked_')) {
+    } else if (isFits && !isStacked) {
       filelist.push(fullPath);
     }
   });
@@ -55,6 +57,20 @@ function anyField(header, keys, fallback = 'Unknown') {
   }
   return fallback;
 }
+
+//Time formatting helper
+function formatHMS(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+
+  const h = hours > 0 ? `${hours}h ` : '';
+  const m = minutes > 0 ? `${minutes}m ` : '';
+  const s = `${seconds}s`;
+
+  return `${h}${m}${s}`.trim();
+}
+
 
 let cancelAllOperations = false;
 // let cancelCurrentScan = false;
@@ -173,7 +189,7 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
     Target: v.Target,
     'FITS Count': v.files,
     'Files With Exposure': v.availableCount,
-    'Summed Integration Time s': Number(v.totalExposure.toFixed(3))
+    'Total Integration Time': formatHMS(v.totalExposure)
   }));
 
   event.sender.send('scan-progress', { current: totalFiles, total: totalFiles, status: 'Complete!' });
@@ -189,7 +205,7 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
   try {
-    // Recursively find all Stacked_ files
+    // Recursively find all Stacked_ and DSO_Stacked_ files
     function findStackedFiles(dir, list = []) {
       const files = fs.readdirSync(dir);
       files.forEach((file) => {
@@ -198,7 +214,10 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
 
         if (stats.isDirectory()) {
           findStackedFiles(fullPath, list);
-        } else if (/\.fit$|\.fits$/i.test(file) && file.startsWith('Stacked_')) {
+        } else if (
+  (/\.fit$|\.fits$/i.test(file)) &&
+  (file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_'))
+) {
           list.push(fullPath);
         }
       });
@@ -234,7 +253,7 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
       const filename = path.basename(filePath);
 
       // Extract target name
-      const match = filename.match(/^Stacked_\d+_(.+?)_\d+\.\d+s/);
+      const match = filename.match(/^(?:Stacked_|DSO_Stacked_)\d+_(.+?)_\d+\.\d+s/);
       if (!match) continue;
 
       const targetName = match[1].replace(/_/g, ' ');
@@ -284,8 +303,6 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
     return { error: `Failed to organize stacked files: ${err.message}` };
   }
 });
-
-// let cancelRemoveJpg = false;
 
 if (cancelAllOperations) {
     cancelAllOperations = false; // reset for next run

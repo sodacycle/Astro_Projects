@@ -17,13 +17,13 @@
 <body>
   <h1>FITS Metadata Viewer</h1>
   <p>Select a directory with .fit files; subdirectories are automatically scanned.</p>
-  <button id="selectDir">Select Directory</button>
-  <button id="scanBtn">Scan FIT</button>
-  <button id="stopBtn" disabled>Stop Scan</button>
-  <button id="organizeBtn" disabled>Organize Stacked Files</button>
-  <button id="removejpgBtn" disabled>Remove .jpg Files</button>
-  <button id="sirilprepBtn" disabled>Siril Prep</button>
-  <button id="removeemptyBtn" disabled>Remove Empty Folders</button>
+  <button id="selectDir" title="Select a directory to scan and process.">Select Directory</button>
+  <button id="scanBtn" title="Start scanning the selected directory for FITS files.">Scan FIT</button>
+  <button id="stopBtn" title="Cancels the currently running operation." disabled>Stop</button>
+  <button id="organizeBtn" title="Organize the scanned Stacked/DSO_Stacked FITS files into a /Stacked_ directory." disabled>Organize Stacked Files</button>
+  <button id="removejpgBtn" title="Remove all jpg & jpeg files from the selected directory in an effort to save disk space. Must be used with caution." disabled>Remove .jpg Files</button>
+  <button id="sirilprepBtn" title="Moves Light files into a /lights subdirectory within Object folders." disabled>Siril Prep</button>
+  <button id="removeemptyBtn" title="Remove empty folders from the selected directory." disabled>Remove Empty Folders</button>
   <div id="selectedPath" style="margin-top:10px; font-size:0.95rem; color:#333;"></div>
   <div id="status"></div>
   <div id="progressContainer" style="margin:10px 0; display:none;">

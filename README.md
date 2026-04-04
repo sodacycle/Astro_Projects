@@ -176,7 +176,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 5. **Organize Stacked Files**:
     - Click 'Organize Stacked Files'
         - The app will:
-            - Find all `Stacked_*.fit` files
+            - Find all `Stacked_*.fit` & `DSO_Stacked_*.fit` files
          - Extract target names
             - Create a `Stacked_/<Target Name>/` folder structure
             - Move each stacked file into its matching target folder -- **overwriting any files with the same name within that folder**

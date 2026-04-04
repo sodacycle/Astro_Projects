@@ -66,7 +66,7 @@ scanBtn.addEventListener('click', async () => {
 
   status.textContent = `Found ${result.metadataList.length} FITS files.`;
 
-  summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Summed Integration Time s']);
+  summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Total Integration Time']);
   detailsArea.innerHTML = createTableHTML(result.metadataList, [
     'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
     'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
