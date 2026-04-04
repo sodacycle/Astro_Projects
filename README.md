@@ -6,7 +6,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 ### Core Functionality
 - **Recursive Directory Scanning**: Searches through selected directory and all subdirectories for FITS files
-- **Smart File Filtering**: Automatically excludes calibration files (those starting with  Stacked_)
+- **Smart File Filtering**: Automatically excludes calibration files (those starting with  `Stacked_` & `DSO_Stacked_`)
 - **Custom FITS Parser**: Built-in header parser supporting both .fit and .fits extensions
 - **Target Extraction**: Intelligently extracts target names from filenames or FITS headers
 - **Metadata Aggregation**: Groups files by astronomical target and calculates total integration time
@@ -210,7 +210,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Target**: Astronomical object name (extracted from filename or header)
 - **FITS Count**: Total number of FITS files for this target
 - **Files With Exposure**: Number of files with valid exposure time data
-- **Total Integration Time**: Total exposure time across all files in HH:MM:SS Format
+- **Total Integration Time**: Total exposure time across all files in `HH:MM:SS` Format
 
 #### Details Table Columns
 - **File**: Filename
