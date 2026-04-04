@@ -23,6 +23,7 @@ selectBtn.addEventListener('click', async () => {
   }
 });
 
+// Scan FITS handler
 scanBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
     status.textContent = 'Please select a directory first.';
@@ -75,6 +76,7 @@ scanBtn.addEventListener('click', async () => {
 
   organizeBtn.disabled = false;
   removejpgBtn.disabled = false;
+  sirilprepBtn.disabled = false;
 });
 
 stopBtn.addEventListener('click', async () => {
@@ -83,41 +85,37 @@ stopBtn.addEventListener('click', async () => {
   stopBtn.disabled = true;
 });
 
-
+// Organize Stacked_ files handler
 organizeBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
     status.textContent = 'Please select a directory first.';
     return;
   }
 
-  organizeBtn.disabled = true;
-  status.textContent = 'Organizing stacked files...';
+  progressContainer.style.display = 'block';
+  progressBar.value = 0;
+  progressText.textContent = "Starting organization...";
+  stopBtn.disabled = false;
 
   const result = await window.electronAPI.organizeStacked(selectedDirectory);
 
+  stopBtn.disabled = true;
+  progressContainer.style.display = 'none';
+
   if (result.error) {
     status.textContent = `Error: ${result.error}`;
-  } else {
-    status.textContent = `${result.message}`;
+    return;
   }
 
-  organizeBtn.disabled = false;
+  if (result.canceled) {
+    status.textContent = `Organization canceled. Moved ${result.movedFiles.length} files.`;
+    return;
+  }
+
+  status.textContent = result.message;
 });
 
-//document.getElementById('removejpgBtn').addEventListener('click', async () => {
-//  const dir = await window.electronAPI.selectDirectory();
-//  if (!dir) return;
-
-//  const result = await window.electronAPI.removeJpg(dir);
-
- // if (result.error) {
- //   alert(`Error: ${result.error}`);
-//    return;
- // }
-
- // alert(`Deleted ${result.deletedCount} JPG/JPEG files.`);
-//});
-
+// Remove JPG handler
 document.getElementById('removejpgBtn').addEventListener('click', async () => {
   if (!selectedDirectory) {
     alert("Please select a directory first.");
@@ -136,6 +134,13 @@ document.getElementById('removejpgBtn').addEventListener('click', async () => {
     progressText.textContent = data.status;
   });
 
+  window.electronAPI.onOrganizeProgress((event, data) => {
+  progressContainer.style.display = 'block';
+  progressBar.value = (data.current / data.total) * 100;
+  progressText.textContent = data.status;
+});
+
+
   const result = await window.electronAPI.removeJpg(selectedDirectory);
 
   stopBtn.disabled = true;
@@ -152,6 +157,41 @@ document.getElementById('removejpgBtn').addEventListener('click', async () => {
   }
 
   alert(`Deleted ${result.deletedCount} JPG/JPEG files.`);
+});
+
+// Prep for Siril handler
+document.getElementById('sirilprepBtn').addEventListener('click', async () => {
+  if (!selectedDirectory) {
+    status.textContent = 'Please select a directory first.';
+    return;
+  }
+
+  progressContainer.style.display = 'block';
+  progressBar.value = 0;
+  progressText.textContent = "Starting Light file preparation...";
+  stopBtn.disabled = false;
+
+  window.electronAPI.onSirilprepProgress((event, data) => {
+    progressBar.value = (data.current / data.total) * 100;
+    progressText.textContent = data.status;
+  });
+
+  const result = await window.electronAPI.sirilprep(selectedDirectory);
+
+  stopBtn.disabled = true;
+  progressContainer.style.display = 'none';
+
+  if (result.error) {
+    status.textContent = `Error: ${result.error}`;
+    return;
+  }
+
+  if (result.canceled) {
+    status.textContent = `Light preparation canceled. Moved ${result.movedCount} files.`;
+    return;
+  }
+
+  status.textContent = result.message;
 });
 
 

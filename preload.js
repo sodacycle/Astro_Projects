@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeJpg: (dir) => ipcRenderer.invoke('remove-jpg', dir),
   cancelAll: () => ipcRenderer.invoke('cancel-all'),
   cancelRemoveJpg: () => ipcRenderer.invoke('cancel-remove-jpg'),
+  sirilprep: (dir) => ipcRenderer.invoke('sirilprep', dir),
   onRemoveProgress: (callback) => ipcRenderer.on('remove-progress', callback),
-  onScanProgress: (callback) => ipcRenderer.on('scan-progress', callback)
+  onScanProgress: (callback) => ipcRenderer.on('scan-progress', callback),
+  onOrganizeProgress: (callback) => ipcRenderer.on('organize-progress', callback),
+  onSirilprepProgress: (callback) => ipcRenderer.on('sirilprep-progress', callback),
 });

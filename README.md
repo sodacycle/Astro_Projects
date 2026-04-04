@@ -18,6 +18,16 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Location Data**: Latitude, longitude, sensor temperature
 - **File Information**: Image type, stacking software, raw header JSON
 
+#### Siril Preparation
+- Recursively scans the selected directory and all subdirectories
+- Detects every file whose name begins with `Light`
+- Creates a `lights/` subdirectory inside each folder where Light files are found
+- Moves each Light file into its corresponding `lights` folder
+- Ideal for preparing directory structures for Siril preprocessing
+- Displays real-time progress using the global progress bar
+- Fully cancelable using the Stop button
+
+
 ### User Interface
 - **Progress Tracking**: Real-time progress bar with file count updates
 - **Cancelable Scans**: Stop button to abort long-running scans
@@ -25,6 +35,8 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
   - **Summary Table**: Target-level aggregation (file count, summed exposure time)
   - **Details Table**: Individual file metadata
 - **Responsive Design**: Clean, readable tables with proper column headers
+- **Siril Prep Workflow**: A dedicated button that automatically organizes Light frames into Siril‑compatible `lights/` subdirectories with progress tracking.
+
 
 ### Cross-Platform Support
 - **Windows**: Native .exe execution
@@ -162,18 +174,28 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 5. **Organize Stacked Files**:
     - Click Organize Stacked Files
-        - The app will:
-            - Find all Stacked_*.fit files
+     - The app will:
+            - Find all `Stacked_*.fit` files
             - Extract target names
             - Create a `Stacked_/<Target Name>/` folder structure
             - Copy each stacked file into its matching target folder
 
 6. **Remove JPG Files**:
     - Click `Remove .jpg FIles`
-      - The app will:
-        - Recursively find all .jpg and .jpeg files
-        - Delete them while showing progress
-        - Allow cancellation via the Stop button
+     - The app will:
+      - Recursively find all `.jpg` and `.jpeg` files
+      - Delete them while showing progress
+      - Allow cancellation via the Stop button
+
+7. **Siril Prep**:
+    - Click `Siril Prep`
+    - The app will:
+     - Recursively scan the selected directory and all subdirectories
+     - Find every file whose name begins with `Light`
+     - Create a new subdirectory named `lights` inside each folder where Light files are found
+     - Move each Light file into its corresponding `lights` subdirectory
+     - Display real-time progress updates using the same progress bar used for JPG removal
+     - Allow cancellation at any time using the Stop button
 
 ### Understanding the Output
 
@@ -230,6 +252,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Included**: `.fit` and `.fits` files (case-insensitive)
 - **Excluded**: Files starting with `Stacked_` (calibration stacks)
 - **JPG Removal**: `.jpg`, `.jpeg` (case-insensitive)
+- **Siril Prep**: Files starting with `Lights` (siril stacking prep)
 
 ## Troubleshooting
 
@@ -261,6 +284,11 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - Windows: Run as Administrator or check folder permissions
 - macOS: Grant disk access in `System Preferences > Security & Privacy`
 - Linux: Check file ownership and permissions
+
+**Siril Prep Didn’t Move Any Files**
+- Ensure your Light frames begin with the exact prefix `Light`
+- Check that the selected directory contains subfolders with Light files
+- Verify file permissions allow moving files
 
 ### Performance Notes
 - **Memory Usage**: Scales with number of FITS files

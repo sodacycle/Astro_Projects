@@ -181,24 +181,28 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
   return { metadataList, targetSummary };
 });
 
+// Organize Stacked_ files handler
 ipcMain.handle('organize-stacked', async (event, dirPath) => {
+  cancelAllOperations = false;
+
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
   try {
-    // Helper function to find all Stacked_ files recursively
-    function findStackedFiles(dir, filelist = []) {
+    // Recursively find all Stacked_ files
+    function findStackedFiles(dir, list = []) {
       const files = fs.readdirSync(dir);
       files.forEach((file) => {
         const fullPath = path.join(dir, file);
         const stats = fs.statSync(fullPath);
+
         if (stats.isDirectory()) {
-          findStackedFiles(fullPath, filelist);
+          findStackedFiles(fullPath, list);
         } else if (/\.fit$|\.fits$/i.test(file) && file.startsWith('Stacked_')) {
-          filelist.push(fullPath);
+          list.push(fullPath);
         }
       });
-      return filelist;
+      return list;
     }
 
     // Create Stacked_ directory
@@ -207,51 +211,80 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
       fs.mkdirSync(stackedDir, { recursive: true });
     }
 
-    // Find all Stacked_ files
     const stackedFiles = findStackedFiles(dirPath);
+    const total = stackedFiles.length;
+
+    // Send initial progress
+    event.sender.send('organize-progress', {
+      current: 0,
+      total,
+      status: 'Organizing stacked FITS files...'
+    });
 
     const movedFiles = [];
     const targets = new Set();
 
-    stackedFiles.forEach((filePath) => {
+    for (let i = 0; i < stackedFiles.length; i++) {
+      if (cancelAllOperations) {
+        cancelAllOperations = false;
+        return { canceled: true, movedFiles };
+      }
+
+      const filePath = stackedFiles[i];
       const filename = path.basename(filePath);
 
-      // Pattern: Stacked_72_NGC 7331_10.0s_20251025_033929.fit
+      // Extract target name
       const match = filename.match(/^Stacked_\d+_(.+?)_\d+\.\d+s/);
-
-      if (!match) return;
+      if (!match) continue;
 
       const targetName = match[1].replace(/_/g, ' ');
       targets.add(targetName);
 
       const targetDir = path.join(stackedDir, targetName);
-
-      // Ensure target directory exists
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
       }
 
-      // Destination path
       const destPath = path.join(targetDir, filename);
 
-      // Copy or move? (copy here — change to renameSync for move)
-      fs.copyFileSync(filePath, destPath);
+      // MOVE instead of copy
+      try {
+        fs.renameSync(filePath, destPath);
+        movedFiles.push({ from: filePath, to: destPath });
+      } catch (err) {
+        console.error(`Failed to move ${filePath}`, err);
+      }
 
-      movedFiles.push({ from: filePath, to: destPath });
+      // Progress update every 10 files
+      if (i % 10 === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+        event.sender.send('organize-progress', {
+          current: i,
+          total,
+          status: `Moving files (${i}/${total})...`
+        });
+      }
+    }
+
+    // Final progress update
+    event.sender.send('organize-progress', {
+      current: total,
+      total,
+      status: 'Stacked file organization complete!'
     });
 
     return {
       success: true,
-      message: `Organized ${movedFiles.length} stacked files into ${targets.size} target directories.`,
-      stackedDir,
+      movedFiles,
       targets: Array.from(targets),
-      movedFiles
+      message: `Moved ${movedFiles.length} files into ${targets.size} target directories.`
     };
 
   } catch (err) {
     return { error: `Failed to organize stacked files: ${err.message}` };
   }
 });
+
 // let cancelRemoveJpg = false;
 
 if (cancelAllOperations) {
@@ -259,6 +292,7 @@ if (cancelAllOperations) {
     return { canceled: true, deletedCount };
 }
 
+//remove JPG handler
 ipcMain.handle('remove-jpg', async (event, dirPath) => {
   cancelAllOperations = false;
 
@@ -330,4 +364,91 @@ ipcMain.handle('remove-jpg', async (event, dirPath) => {
     return { error: `Failed to remove JPG files: ${err.message}` };
   }
 });
+
+// Prep for Siril handler (placeholder for now)
+ipcMain.handle('sirilprep', async (event, dirPath) => {
+  cancelAllOperations = false;
+
+  if (!dirPath) return { error: 'No directory path provided.' };
+  if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
+
+  try {
+    // Recursively find all Light* files
+    function findLightFiles(dir, list = []) {
+      const files = fs.readdirSync(dir);
+      files.forEach((file) => {
+        const fullPath = path.join(dir, file);
+        const stats = fs.statSync(fullPath);
+
+        if (stats.isDirectory()) {
+          findLightFiles(fullPath, list);
+        } else if (/^Light/i.test(file)) {
+          list.push(fullPath);
+        }
+      });
+      return list;
+    }
+
+    const lightFiles = findLightFiles(dirPath);
+    const total = lightFiles.length;
+
+    event.sender.send('sirilprep-progress', {
+      current: 0,
+      total,
+      status: 'Preparing Light frames...'
+    });
+
+    let movedCount = 0;
+
+    for (let i = 0; i < lightFiles.length; i++) {
+      if (cancelAllOperations) {
+        cancelAllOperations = false;
+        return { canceled: true, movedCount };
+      }
+
+      const filePath = lightFiles[i];
+      const parentDir = path.dirname(filePath);
+      const lightsDir = path.join(parentDir, 'lights');
+
+      if (!fs.existsSync(lightsDir)) {
+        fs.mkdirSync(lightsDir, { recursive: true });
+      }
+
+      const destPath = path.join(lightsDir, path.basename(filePath));
+
+      try {
+        fs.renameSync(filePath, destPath); // MOVE
+        movedCount++;
+      } catch (err) {
+        console.error(`Failed to move ${filePath}`, err);
+      }
+
+      if (i % 10 === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+        event.sender.send('sirilprep-progress', {
+          current: i,
+          total,
+          status: `Moving Light frames (${i}/${total})...`
+        });
+      }
+    }
+
+    event.sender.send('sirilprep-progress', {
+      current: total,
+      total,
+      status: 'Light frame organization complete!'
+    });
+
+    return {
+      success: true,
+      movedCount,
+      message: `Moved ${movedCount} Light frames into lights/ subdirectories.`
+    };
+
+  } catch (err) {
+    return { error: `Failed to prepare Light frames: ${err.message}` };
+  }
+});
+
+
 

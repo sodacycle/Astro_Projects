@@ -16,12 +16,13 @@
 </head>
 <body>
   <h1>FITS Metadata Viewer</h1>
-  <p>Select a directory with .fit/.fits files; subdirectories are scanned recursively.</p>
+  <p>Select a directory with .fit files; subdirectories are automatically scanned.</p>
   <button id="selectDir">Select Directory</button>
-  <button id="scanBtn">Scan FITS</button>
+  <button id="scanBtn">Scan FIT</button>
   <button id="stopBtn" disabled>Stop Scan</button>
   <button id="organizeBtn" disabled>Organize Stacked Files</button>
   <button id="removejpgBtn" disabled>Remove .jpg Files</button>
+  <button id="sirilprepBtn" disabled>Siril Prep</button>
   <div id="selectedPath" style="margin-top:10px; font-size:0.95rem; color:#333;"></div>
   <div id="status"></div>
   <div id="progressContainer" style="margin:10px 0; display:none;">
