@@ -18,6 +18,16 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Location Data**: Latitude, longitude, sensor temperature
 - **File Information**: Image type, stacking software, raw header JSON
 
+#### Siril Preparation
+- Recursively scans the selected directory and all subdirectories
+- Detects every file whose name begins with `Light`
+- Creates a `lights/` subdirectory inside each folder where Light files are found
+- Moves each Light file into its corresponding `lights` folder
+- Ideal for preparing directory structures for Siril preprocessing
+- Displays real-time progress using the global progress bar
+- Fully cancelable using the Stop button
+
+
 ### User Interface
 - **Progress Tracking**: Real-time progress bar with file count updates
 - **Cancelable Scans**: Stop button to abort long-running scans
