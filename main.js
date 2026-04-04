@@ -251,7 +251,7 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
   } catch (err) {
     return { error: `Failed to organize stacked files: ${err.message}` };
   }
-
+});
 // let cancelRemoveJpg = false;
 
 if (cancelAllOperations) {
@@ -331,6 +331,3 @@ ipcMain.handle('remove-jpg', async (event, dirPath) => {
   }
 });
 
-
-
-});

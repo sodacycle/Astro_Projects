@@ -160,6 +160,21 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
    - **Summary Table**: Shows aggregated data per astronomical target
    - **Details Table**: Shows individual file metadata
 
+5. **Organize Stacked Files**:
+    - Click Organize Stacked Files
+        - The app will:
+            - Find all Stacked_*.fit files
+         - Extract target names
+            - Create a `Stacked_/<Target Name>/` folder structure
+            - Copy each stacked file into its matching target folder
+
+6. **Remove JPG Files**:
+    - Click `Remove .jpg FIles`
+    - The app will:
+        - Recursively find all .jpg and .jpeg files
+        - Delete them while showing progress
+        - Allow cancellation via the Stop button
+
 ### Understanding the Output
 
 #### Summary Table Columns
@@ -198,13 +213,13 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Comment Stripping**: Removes inline comments after / character
 
 ### Target Name Extraction
-1. **Primary Method**: Filename pattern matching (e.g., Light_M31_10.0s_Ha_20240101-120000.fit ? M31)
+1. **Primary Method**: Filename pattern matching (e.g., `Light_M31_10.0s_Ha_20240101-120000.fit` to  `M31`)
 2. **Fallback**: FITS header OBJECT field
 3. **Final Fallback**: Unknown
 
 ### Telescope/Camera Detection
-- **Priority Order**: TELESCOP ? TELESCOPE ? CREATOR ? INSTRUME ? CAMERA ? CAM
-- **Fallback Logic**: If telescope is unknown, uses camera model instead
+- **Priority Order**: `TELESCOP` | `TELESCOPE` | `CREATOR` | `INSTRUME` | `CAMERA` | `CAM`
+- **Fallback Logic**: If telescope is `unknown`, uses `camera model` instead
 
 ### Date/Time Handling
 - **Parsing**: ISO 8601 format with dayjs library
@@ -212,8 +227,9 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Arithmetic**: End time calculated as start + total exposure
 
 ### File Filtering
-- **Included**: .fit and .fits files (case-insensitive)
-- **Excluded**: Files starting with Stacked_ (calibration stacks)
+- **Included**: `.fit` and `.fits` files (case-insensitive)
+- **Excluded**: Files starting with `Stacked_` (calibration stacks)
+- **JPG Removal**: `.jpg`, `.jpeg` (case-insensitive)
 
 ## Troubleshooting
 
@@ -221,9 +237,9 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 **Application Won't Start**
 - Ensure Node.js 16+ is installed: 
-ode --version
+`node --version`
 - Clear node_modules and reinstall: 
-m -rf node_modules && npm install
+`m -rf node_modules && npm install`
 - Check for port conflicts (default Electron port)
 
 **No FITS Files Found**
@@ -234,7 +250,7 @@ m -rf node_modules && npm install
 **Metadata Shows Unknown**
 - FITS files may use non-standard header fields
 - Seestar S30 uses CREATOR field for camera model
-- Target names extracted from filenames when OBJECT field missing
+- Target names extracted from filenames when `OBJECT` field missing
 
 **Scan Takes Too Long**
 - Large directories with many files may take time
@@ -243,7 +259,7 @@ m -rf node_modules && npm install
 
 **Permission Errors**
 - Windows: Run as Administrator or check folder permissions
-- macOS: Grant disk access in System Preferences ? Security & Privacy
+- macOS: Grant disk access in `System Preferences > Security & Privacy`
 - Linux: Check file ownership and permissions
 
 ### Performance Notes
@@ -292,11 +308,11 @@ npm run dist
 
 ## License
 
-[Add your license here]
+
 
 ## Contributing
 
-[Add contribution guidelines here]
+
 
 ## Support
 
