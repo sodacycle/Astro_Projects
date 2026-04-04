@@ -5,21 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FITS Metadata Viewer</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 16px; }
+    body { font-family: Arial, sans-serif; margin: 16px; color: #000003de; background: #e0e0e0;}
     button { margin-right: 8px; padding: 8px 14px; }
     #status { margin: 10px 0; color: #444; }
     table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-    th, td { padding: 6px 10px; border: 1px solid #ccc; text-align: left; }
-    th { background: #e7f0ff; }
-    #summary, #details { margin-top: 10px; max-height: 340px; overflow: auto; }
+    th, td { padding: 8px 10px; border: 1px solid #bbbbbb; text-align: left; font-size: 0.9rem; }
+    th { background: #9cc8f1; font-weight: bold; position: sticky; top: 0; z-index: 10; }
+    #summary, #details { margin-top: 10px; overflow-x: auto; max-height: 500px; overflow-y: auto; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
   <h1>FITS Metadata Viewer</h1>
-  <p>Select a directory with .fit/.fits files; subdirectories are scanned recursively.</p>
+  <p>Select a directory with .fit files; subdirectories are automatically scanned.</p>
   <button id="selectDir">Select Directory</button>
-  <button id="scanBtn">Scan FITS</button>
+  <button id="scanBtn">Scan FIT</button>
   <button id="stopBtn" disabled>Stop Scan</button>
+  <button id="organizeBtn" disabled>Organize Stacked Files</button>
+  <button id="removejpgBtn" disabled>Remove .jpg Files</button>
+  <button id="sirilprepBtn" disabled>Siril Prep</button>
+  <button id="removeemptyBtn" disabled>Remove Empty Folders</button>
   <div id="selectedPath" style="margin-top:10px; font-size:0.95rem; color:#333;"></div>
   <div id="status"></div>
   <div id="progressContainer" style="margin:10px 0; display:none;">

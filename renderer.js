@@ -1,6 +1,7 @@
 const selectBtn = document.getElementById('selectDir');
 const scanBtn = document.getElementById('scanBtn');
 const stopBtn = document.getElementById('stopBtn');
+const organizeBtn = document.getElementById('organizeBtn');
 const pathDisp = document.getElementById('selectedPath');
 const status = document.getElementById('status');
 const progressContainer = document.getElementById('progressContainer');
@@ -22,6 +23,7 @@ selectBtn.addEventListener('click', async () => {
   }
 });
 
+// Scan FITS handler
 scanBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
     status.textContent = 'Please select a directory first.';
@@ -71,13 +73,167 @@ scanBtn.addEventListener('click', async () => {
     'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
     'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software'
   ]);
+
+  organizeBtn.disabled = false;
+  removejpgBtn.disabled = false;
+  sirilprepBtn.disabled = false;
 });
 
 stopBtn.addEventListener('click', async () => {
-  await window.electronAPI.cancelScan();
-  status.textContent = 'Cancel requested; waiting for the scan loop to stop...';
+  await window.electronAPI.cancelAll();
+  status.textContent = 'Cancel requested; waiting for operation to stop...';
   stopBtn.disabled = true;
 });
+
+// Organize Stacked_ files handler
+organizeBtn.addEventListener('click', async () => {
+  if (!selectedDirectory) {
+    status.textContent = 'Please select a directory first.';
+    return;
+  }
+
+  progressContainer.style.display = 'block';
+  progressBar.value = 0;
+  progressText.textContent = "Starting organization...";
+  stopBtn.disabled = false;
+
+  const result = await window.electronAPI.organizeStacked(selectedDirectory);
+
+  stopBtn.disabled = true;
+  progressContainer.style.display = 'none';
+
+  if (result.error) {
+    status.textContent = `Error: ${result.error}`;
+    return;
+  }
+
+  if (result.canceled) {
+    status.textContent = `Organization canceled. Moved ${result.movedFiles.length} files.`;
+    return;
+  }
+
+  status.textContent = result.message;
+});
+
+// Remove JPG handler
+document.getElementById('removejpgBtn').addEventListener('click', async () => {
+  if (!selectedDirectory) {
+    alert("Please select a directory first.");
+    return;
+  }
+
+  // Show progress bar
+  progressContainer.style.display = 'block';
+  progressBar.value = 0;
+  progressText.textContent = "Starting JPG removal...";
+  stopBtn.disabled = false;
+
+  // Listen for progress events
+  window.electronAPI.onRemoveProgress((event, data) => {
+    progressBar.value = (data.current / data.total) * 100;
+    progressText.textContent = data.status;
+  });
+
+  window.electronAPI.onOrganizeProgress((event, data) => {
+  progressContainer.style.display = 'block';
+  progressBar.value = (data.current / data.total) * 100;
+  progressText.textContent = data.status;
+});
+
+
+  const result = await window.electronAPI.removeJpg(selectedDirectory);
+
+  stopBtn.disabled = true;
+  progressContainer.style.display = 'none';
+
+  if (result.error) {
+    alert(`Error: ${result.error}`);
+    return;
+  }
+
+  if (result.canceled) {
+    alert(`JPG removal canceled. Deleted ${result.deletedCount} files.`);
+    return;
+  }
+
+  alert(`Deleted ${result.deletedCount} JPG/JPEG files.`);
+});
+
+// Prep for Siril handler
+document.getElementById('sirilprepBtn').addEventListener('click', async () => {
+  if (!selectedDirectory) {
+    status.textContent = 'Please select a directory first.';
+    return;
+  }
+
+  progressContainer.style.display = 'block';
+  progressBar.value = 0;
+  progressText.textContent = "Starting Light file preparation...";
+  stopBtn.disabled = false;
+
+  window.electronAPI.onSirilprepProgress((event, data) => {
+    progressBar.value = (data.current / data.total) * 100;
+    progressText.textContent = data.status;
+  });
+
+  const result = await window.electronAPI.sirilprep(selectedDirectory);
+
+  stopBtn.disabled = true;
+  progressContainer.style.display = 'none';
+
+  if (result.error) {
+    status.textContent = `Error: ${result.error}`;
+    return;
+  }
+
+  if (result.canceled) {
+    status.textContent = `Light preparation canceled. Moved ${result.movedCount} files.`;
+    return;
+  }
+
+  status.textContent = result.message;
+});
+
+// Register progress listener ONCE
+window.electronAPI.onRemoveEmptyFoldersProgress((event, data) => {
+  const { deletedCount, totalFolders } = data;
+
+  progressBar.max = totalFolders;
+  progressBar.value = deletedCount;
+
+  progressText.textContent = `Removed ${deletedCount} of ${totalFolders} empty folders...`;
+});
+
+// Remove empty folders handler
+document.getElementById('removeemptyBtn').addEventListener('click', async () => {
+  if (!selectedDirectory) {
+    status.textContent = 'Please select a directory first.';
+    return;
+  }
+
+  progressContainer.style.display = 'block';
+  progressBar.value = 0;
+  progressText.textContent = "Starting empty folder removal...";
+  stopBtn.disabled = false;
+
+  const result = await window.electronAPI.removeEmptyFolders(selectedDirectory);
+
+  stopBtn.disabled = true;
+  progressContainer.style.display = 'none';
+
+  if (result.error) {
+    status.textContent = `Error: ${result.error}`;
+    return;
+  }
+
+  if (result.canceled) {
+    status.textContent = `Empty folder removal canceled.`;
+    return;
+  }
+
+  status.textContent = result.message;
+});
+
 
 function createTableHTML(data, columns) {
   if (!data || data.length === 0) return '<p>No data to show.</p>';

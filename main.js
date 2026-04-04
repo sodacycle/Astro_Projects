@@ -4,6 +4,8 @@ const fs = require('fs');
 const { parseFitsHeader } = require('./fits-parser');
 const dayjs = require('dayjs');
 
+
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100,
@@ -54,15 +56,17 @@ function anyField(header, keys, fallback = 'Unknown') {
   return fallback;
 }
 
-let cancelCurrentScan = false;
+let cancelAllOperations = false;
+// let cancelCurrentScan = false;
 
-ipcMain.handle('cancel-scan', () => {
-  cancelCurrentScan = true;
+ipcMain.handle('cancel-all', () => {
+  cancelAllOperations = true;
   return { canceled: true };
 });
 
+
 ipcMain.handle('scan-fits', async (event, dirPath) => {
-  cancelCurrentScan = false;
+  cancelAllOperations = false;
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
@@ -73,9 +77,10 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
   event.sender.send('scan-progress', { current: 0, total: totalFiles, status: 'Starting scan...' });
 
   for (let i = 0; i < fitFiles.length; i++) {
-    if (cancelCurrentScan) {
-      return { canceled: true, metadataList, targetSummary: [] };
-    }
+    if (cancelAllOperations) {
+    cancelAllOperations = false; // reset for next run
+    return { canceled: true, metadataList, targetSummary: [] };
+}
 
     const filePath = fitFiles[i];
 
@@ -175,3 +180,342 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
 
   return { metadataList, targetSummary };
 });
+
+// Organize Stacked_ files handler
+ipcMain.handle('organize-stacked', async (event, dirPath) => {
+  cancelAllOperations = false;
+
+  if (!dirPath) return { error: 'No directory path provided.' };
+  if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
+
+  try {
+    // Recursively find all Stacked_ files
+    function findStackedFiles(dir, list = []) {
+      const files = fs.readdirSync(dir);
+      files.forEach((file) => {
+        const fullPath = path.join(dir, file);
+        const stats = fs.statSync(fullPath);
+
+        if (stats.isDirectory()) {
+          findStackedFiles(fullPath, list);
+        } else if (/\.fit$|\.fits$/i.test(file) && file.startsWith('Stacked_')) {
+          list.push(fullPath);
+        }
+      });
+      return list;
+    }
+
+    // Create Stacked_ directory
+    const stackedDir = path.join(dirPath, 'Stacked_');
+    if (!fs.existsSync(stackedDir)) {
+      fs.mkdirSync(stackedDir, { recursive: true });
+    }
+
+    const stackedFiles = findStackedFiles(dirPath);
+    const total = stackedFiles.length;
+
+    // Send initial progress
+    event.sender.send('organize-progress', {
+      current: 0,
+      total,
+      status: 'Organizing stacked FITS files...'
+    });
+
+    const movedFiles = [];
+    const targets = new Set();
+
+    for (let i = 0; i < stackedFiles.length; i++) {
+      if (cancelAllOperations) {
+        cancelAllOperations = false;
+        return { canceled: true, movedFiles };
+      }
+
+      const filePath = stackedFiles[i];
+      const filename = path.basename(filePath);
+
+      // Extract target name
+      const match = filename.match(/^Stacked_\d+_(.+?)_\d+\.\d+s/);
+      if (!match) continue;
+
+      const targetName = match[1].replace(/_/g, ' ');
+      targets.add(targetName);
+
+      const targetDir = path.join(stackedDir, targetName);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+
+      const destPath = path.join(targetDir, filename);
+
+      // MOVE instead of copy
+      try {
+        fs.renameSync(filePath, destPath);
+        movedFiles.push({ from: filePath, to: destPath });
+      } catch (err) {
+        console.error(`Failed to move ${filePath}`, err);
+      }
+
+      // Progress update every 10 files
+      if (i % 10 === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+        event.sender.send('organize-progress', {
+          current: i,
+          total,
+          status: `Moving files (${i}/${total})...`
+        });
+      }
+    }
+
+    // Final progress update
+    event.sender.send('organize-progress', {
+      current: total,
+      total,
+      status: 'Stacked file organization complete!'
+    });
+
+    return {
+      success: true,
+      movedFiles,
+      targets: Array.from(targets),
+      message: `Moved ${movedFiles.length} files into ${targets.size} target directories.`
+    };
+
+  } catch (err) {
+    return { error: `Failed to organize stacked files: ${err.message}` };
+  }
+});
+
+// let cancelRemoveJpg = false;
+
+if (cancelAllOperations) {
+    cancelAllOperations = false; // reset for next run
+    return { canceled: true, deletedCount };
+}
+
+//remove JPG handler
+ipcMain.handle('remove-jpg', async (event, dirPath) => {
+  cancelAllOperations = false;
+
+  if (!dirPath) return { error: 'No directory path provided.' };
+  if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
+
+  try {
+    function findJpgFiles(dir, list = []) {
+      const files = fs.readdirSync(dir);
+      files.forEach((file) => {
+        const fullPath = path.join(dir, file);
+        const stats = fs.statSync(fullPath);
+
+        if (stats.isDirectory()) {
+          findJpgFiles(fullPath, list);
+        } else if (/\.(jpg|jpeg)$/i.test(file)) {
+          list.push(fullPath);
+        }
+      });
+      return list;
+    }
+
+    const jpgFiles = findJpgFiles(dirPath);
+    const total = jpgFiles.length;
+
+    event.sender.send('remove-progress', {
+      current: 0,
+      total,
+      status: 'Starting JPG removal...'
+    });
+
+    let deletedCount = 0;
+
+    for (let i = 0; i < jpgFiles.length; i++) {
+      if (cancelAllOperations) {
+        cancelAllOperations = false;
+        return { canceled: true, deletedCount };
+      }
+
+      try {
+        fs.unlinkSync(jpgFiles[i]);
+        deletedCount++;
+      } catch (err) {
+        console.error(`Failed to delete ${jpgFiles[i]}`, err);
+      }
+
+      if (i % 10 === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+        event.sender.send('remove-progress', {
+          current: i,
+          total,
+          status: `Deleting JPGs (${i}/${total})...`
+        });
+      }
+    }
+
+    event.sender.send('remove-progress', {
+      current: total,
+      total,
+      status: 'JPG removal complete!'
+    });
+
+    return {
+      success: true,
+      deletedCount
+    };
+
+  } catch (err) {
+    return { error: `Failed to remove JPG files: ${err.message}` };
+  }
+});
+
+// Prep for Siril handler
+ipcMain.handle('sirilprep', async (event, dirPath) => {
+  cancelAllOperations = false;
+
+  if (!dirPath) return { error: 'No directory path provided.' };
+  if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
+
+  try {
+    // Recursively find all Light* files
+    function findLightFiles(dir, list = []) {
+      const files = fs.readdirSync(dir);
+      files.forEach((file) => {
+        const fullPath = path.join(dir, file);
+        const stats = fs.statSync(fullPath);
+
+        if (stats.isDirectory()) {
+          findLightFiles(fullPath, list);
+        } else if (/^Light/i.test(file)) {
+          list.push(fullPath);
+        }
+      });
+      return list;
+    }
+
+    const lightFiles = findLightFiles(dirPath);
+    const total = lightFiles.length;
+
+    event.sender.send('sirilprep-progress', {
+      current: 0,
+      total,
+      status: 'Preparing Light frames...'
+    });
+
+    let movedCount = 0;
+
+    for (let i = 0; i < lightFiles.length; i++) {
+      if (cancelAllOperations) {
+        cancelAllOperations = false;
+        return { canceled: true, movedCount };
+      }
+
+      const filePath = lightFiles[i];
+      const parentDir = path.dirname(filePath);
+      const lightsDir = path.join(parentDir, 'lights');
+
+      if (!fs.existsSync(lightsDir)) {
+        fs.mkdirSync(lightsDir, { recursive: true });
+      }
+
+      const destPath = path.join(lightsDir, path.basename(filePath));
+
+      try {
+        fs.renameSync(filePath, destPath); // MOVE
+        movedCount++;
+      } catch (err) {
+        console.error(`Failed to move ${filePath}`, err);
+      }
+
+      if (i % 10 === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+        event.sender.send('sirilprep-progress', {
+          current: i,
+          total,
+          status: `Moving Light frames (${i}/${total})...`
+        });
+      }
+    }
+
+    event.sender.send('sirilprep-progress', {
+      current: total,
+      total,
+      status: 'Light frame organization complete!'
+    });
+
+    return {
+      success: true,
+      movedCount,
+      message: `Moved ${movedCount} Light frames into lights/ subdirectories.`
+    };
+
+  } catch (err) {
+    return { error: `Failed to prepare Light frames: ${err.message}` };
+  }
+});
+
+//Remove empty folders handler
+// Remove empty folders handler
+ipcMain.handle('remove-empty-folders', async (event, dirPath) => {
+  cancelAllOperations = false;
+
+  if (!dirPath) return { error: 'No directory path provided.' };
+  if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
+
+  let deletedCount = 0;
+  let totalFolders = 0;
+
+  // First pass: count all folders for progress tracking
+  function countFolders(folder) {
+    if (cancelAllOperations) return;
+    const entries = fs.readdirSync(folder, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        totalFolders++;
+        countFolders(path.join(folder, entry.name));
+      }
+    }
+  }
+
+  // Second pass: delete empty folders bottom-up
+  function removeEmpty(folder) {
+    if (cancelAllOperations) return;
+
+    const entries = fs.readdirSync(folder, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        removeEmpty(path.join(folder, entry.name));
+      }
+    }
+
+    // After processing children, check if folder is empty
+    const after = fs.readdirSync(folder);
+    if (after.length === 0 && folder !== dirPath) {
+      fs.rmdirSync(folder);
+      deletedCount++;
+
+      event.sender.send('remove-empty-folders-progress', {
+        deletedCount,
+        totalFolders
+      });
+    }
+  }
+
+  try {
+    countFolders(dirPath);
+    removeEmpty(dirPath);
+
+    if (cancelAllOperations) {
+      return { canceled: true, message: 'Operation canceled.' };
+    }
+
+    return {
+      message: `Removed ${deletedCount} empty folder(s).`,
+      deletedCount
+    };
+
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+
+
+
