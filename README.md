@@ -164,13 +164,13 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
     - Click Organize Stacked Files
         - The app will:
             - Find all Stacked_*.fit files
-         - Extract target names
+            - Extract target names
             - Create a `Stacked_/<Target Name>/` folder structure
             - Copy each stacked file into its matching target folder
 
 6. **Remove JPG Files**:
     - Click `Remove .jpg FIles`
-    - The app will:
+      - The app will:
         - Recursively find all .jpg and .jpeg files
         - Delete them while showing progress
         - Allow cancellation via the Stop button
