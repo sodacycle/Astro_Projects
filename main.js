@@ -373,19 +373,24 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
   try {
-    // Recursively find all Light* files
+    // Recursively find all Light* files, but skip existing "lights" folders
     function findLightFiles(dir, list = []) {
       const files = fs.readdirSync(dir);
+
       files.forEach((file) => {
         const fullPath = path.join(dir, file);
         const stats = fs.statSync(fullPath);
 
         if (stats.isDirectory()) {
+          // 🔥 FIX 1: Skip scanning any existing "lights" folder
+          if (file.toLowerCase() === 'lights') return;
           findLightFiles(fullPath, list);
-        } else if (/^Light/i.test(file)) {
+        } 
+        else if (/^Light/i.test(file)) {
           list.push(fullPath);
         }
       });
+
       return list;
     }
 
@@ -408,6 +413,12 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
 
       const filePath = lightFiles[i];
       const parentDir = path.dirname(filePath);
+
+      // 🔥 FIX 2: Skip Light files already inside a "lights" folder
+      if (parentDir.toLowerCase().endsWith('lights')) {
+        continue;
+      }
+
       const lightsDir = path.join(parentDir, 'lights');
 
       if (!fs.existsSync(lightsDir)) {
@@ -417,7 +428,7 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
       const destPath = path.join(lightsDir, path.basename(filePath));
 
       try {
-        fs.renameSync(filePath, destPath); // MOVE
+        fs.renameSync(filePath, destPath);
         movedCount++;
       } catch (err) {
         console.error(`Failed to move ${filePath}`, err);
@@ -442,7 +453,7 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
     return {
       success: true,
       movedCount,
-      message: `Moved ${movedCount} Light frames into lights/ subdirectories.`
+      message: `Moved ${movedCount} Light frames into /lights subdirectories.`
     };
 
   } catch (err) {
@@ -450,10 +461,11 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
   }
 });
 
-//Remove empty folders handler
+
 // Remove empty folders handler
 ipcMain.handle('remove-empty-folders', async (event, dirPath) => {
   cancelAllOperations = false;
+  message: 'Removing empty folders...';
 
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };

@@ -34,7 +34,7 @@ scanBtn.addEventListener('click', async () => {
   summaryArea.innerHTML = '';
   detailsArea.innerHTML = '';
 
-  status.textContent = 'Scanning FITS files...';
+  status.textContent = 'Scanning FITS files... This may take a while for large directories.';
   progressContainer.style.display = 'block';
   progressBar.value = 0;
   progressText.textContent = 'Starting...';
@@ -77,6 +77,7 @@ scanBtn.addEventListener('click', async () => {
   organizeBtn.disabled = false;
   removejpgBtn.disabled = false;
   sirilprepBtn.disabled = false;
+  removeemptyBtn.disabled = false;
 });
 
 stopBtn.addEventListener('click', async () => {
@@ -94,7 +95,7 @@ organizeBtn.addEventListener('click', async () => {
 
   progressContainer.style.display = 'block';
   progressBar.value = 0;
-  progressText.textContent = "Starting organization...";
+  progressText.textContent = "Beginning to move Stacked files into Stacked_ directory...";
   stopBtn.disabled = false;
 
   const result = await window.electronAPI.organizeStacked(selectedDirectory);
@@ -113,6 +114,7 @@ organizeBtn.addEventListener('click', async () => {
   }
 
   status.textContent = result.message;
+  progressText.textContent = `Moved ${result.movedFiles.length} files.`;
 });
 
 // Remove JPG handler
@@ -125,7 +127,7 @@ document.getElementById('removejpgBtn').addEventListener('click', async () => {
   // Show progress bar
   progressContainer.style.display = 'block';
   progressBar.value = 0;
-  progressText.textContent = "Starting JPG removal...";
+  progressText.textContent = "Starting JPG removal... This may take a while..";
   stopBtn.disabled = false;
 
   // Listen for progress events
@@ -155,7 +157,7 @@ document.getElementById('removejpgBtn').addEventListener('click', async () => {
     alert(`JPG removal canceled. Deleted ${result.deletedCount} files.`);
     return;
   }
-
+progressText.textContent = `Deleted ${result.deletedCount} JPG/JPEG files.`;
   alert(`Deleted ${result.deletedCount} JPG/JPEG files.`);
 });
 
@@ -168,7 +170,7 @@ document.getElementById('sirilprepBtn').addEventListener('click', async () => {
 
   progressContainer.style.display = 'block';
   progressBar.value = 0;
-  progressText.textContent = "Starting Light file preparation...";
+  progressText.textContent = "Moving Light files into lights subdirectory...";
   stopBtn.disabled = false;
 
   window.electronAPI.onSirilprepProgress((event, data) => {
@@ -187,10 +189,11 @@ document.getElementById('sirilprepBtn').addEventListener('click', async () => {
   }
 
   if (result.canceled) {
-    status.textContent = `Light preparation canceled. Moved ${result.movedCount} files.`;
+    status.textContent = `Siril stacking preparation canceled. Moved ${result.movedCount} files.`;
     return;
   }
 
+  progressText.textContent = `Moved ${result.movedCount} files into lights subdirectories.`;
   status.textContent = result.message;
 });
 
@@ -200,7 +203,6 @@ window.electronAPI.onRemoveEmptyFoldersProgress((event, data) => {
 
   progressBar.max = totalFolders;
   progressBar.value = deletedCount;
-
   progressText.textContent = `Removed ${deletedCount} of ${totalFolders} empty folders...`;
 });
 
