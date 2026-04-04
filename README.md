@@ -178,7 +178,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
             - Find all `Stacked_*.fit` files
          - Extract target names
             - Create a `Stacked_/<Target Name>/` folder structure
-            - Copy each stacked file into its matching target folder
+            - Move each stacked file into its matching target folder -- **overwriting any files with the same name within that folder**
 
 6. **Remove JPG Files**:
     - Click `Remove .jpg FIles`
@@ -193,7 +193,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
         - Recursively scan the selected directory and all subdirectories
         - Find every file whose name begins with `Light`
         - Create a new subdirectory named `lights` inside each folder where Light files are found
-        - Move each Light file into its corresponding `lights` subdirectory
+        - Move each Light file into its corresponding `lights` subdirectory -- **overwriting any files with the same name within that folder**
         - Display real-time progress updates using the same progress bar used for JPG removal
         - Allow cancellation at any time using the Stop button
 
