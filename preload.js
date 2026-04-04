@@ -9,8 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cancelAll: () => ipcRenderer.invoke('cancel-all'),
   cancelRemoveJpg: () => ipcRenderer.invoke('cancel-remove-jpg'),
   sirilprep: (dir) => ipcRenderer.invoke('sirilprep', dir),
+  removeEmptyFolders: (dir) => ipcRenderer.invoke('remove-empty-folders', dir),
   onRemoveProgress: (callback) => ipcRenderer.on('remove-progress', callback),
   onScanProgress: (callback) => ipcRenderer.on('scan-progress', callback),
   onOrganizeProgress: (callback) => ipcRenderer.on('organize-progress', callback),
   onSirilprepProgress: (callback) => ipcRenderer.on('sirilprep-progress', callback),
+  onRemoveEmptyFoldersProgress: (callback) => ipcRenderer.on('remove-empty-folders-progress', callback),
 });

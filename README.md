@@ -35,7 +35,8 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
   - **Summary Table**: Target-level aggregation (file count, summed exposure time)
   - **Details Table**: Individual file metadata
 - **Responsive Design**: Clean, readable tables with proper column headers
-- **Siril Prep Workflow**: A dedicated button that automatically organizes Light frames into Siril‑compatible `lights/` subdirectories with progress tracking.
+- **Siril Prep Workflow**: A dedicated button that automatically organizes Light frames into Siril‑compatible `lights/` subdirectories with progress tracking
+- **Remove Empty Folders**: A dedicated button that will parse subfolders and remove empty folder left behind once 'Organize Stacked Files' has been used
 
 
 ### Cross-Platform Support
@@ -173,7 +174,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
    - **Details Table**: Shows individual file metadata
 
 5. **Organize Stacked Files**:
-    - Click Organize Stacked Files
+    - Click 'Organize Stacked Files'
         - The app will:
             - Find all `Stacked_*.fit` files
          - Extract target names
@@ -196,6 +197,12 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
         - Move each Light file into its corresponding `lights` subdirectory -- **overwriting any files with the same name within that folder**
         - Display real-time progress updates using the same progress bar used for JPG removal
         - Allow cancellation at any time using the Stop button
+
+8. **Remove Empty Folders**:
+   - Click 'Remove Empty Folders'
+   - The app will:
+      - Scan for any empty folders left behind after 'Organize Stacked Files' has been used
+      - Delete the empty folders
 
 ### Understanding the Output
 

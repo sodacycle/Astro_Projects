@@ -194,6 +194,45 @@ document.getElementById('sirilprepBtn').addEventListener('click', async () => {
   status.textContent = result.message;
 });
 
+// Register progress listener ONCE
+window.electronAPI.onRemoveEmptyFoldersProgress((event, data) => {
+  const { deletedCount, totalFolders } = data;
+
+  progressBar.max = totalFolders;
+  progressBar.value = deletedCount;
+
+  progressText.textContent = `Removed ${deletedCount} of ${totalFolders} empty folders...`;
+});
+
+// Remove empty folders handler
+document.getElementById('removeemptyBtn').addEventListener('click', async () => {
+  if (!selectedDirectory) {
+    status.textContent = 'Please select a directory first.';
+    return;
+  }
+
+  progressContainer.style.display = 'block';
+  progressBar.value = 0;
+  progressText.textContent = "Starting empty folder removal...";
+  stopBtn.disabled = false;
+
+  const result = await window.electronAPI.removeEmptyFolders(selectedDirectory);
+
+  stopBtn.disabled = true;
+  progressContainer.style.display = 'none';
+
+  if (result.error) {
+    status.textContent = `Error: ${result.error}`;
+    return;
+  }
+
+  if (result.canceled) {
+    status.textContent = `Empty folder removal canceled.`;
+    return;
+  }
+
+  status.textContent = result.message;
+});
 
 
 function createTableHTML(data, columns) {

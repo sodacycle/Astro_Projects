@@ -365,7 +365,7 @@ ipcMain.handle('remove-jpg', async (event, dirPath) => {
   }
 });
 
-// Prep for Siril handler (placeholder for now)
+// Prep for Siril handler
 ipcMain.handle('sirilprep', async (event, dirPath) => {
   cancelAllOperations = false;
 
@@ -449,6 +449,73 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
     return { error: `Failed to prepare Light frames: ${err.message}` };
   }
 });
+
+//Remove empty folders handler
+// Remove empty folders handler
+ipcMain.handle('remove-empty-folders', async (event, dirPath) => {
+  cancelAllOperations = false;
+
+  if (!dirPath) return { error: 'No directory path provided.' };
+  if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
+
+  let deletedCount = 0;
+  let totalFolders = 0;
+
+  // First pass: count all folders for progress tracking
+  function countFolders(folder) {
+    if (cancelAllOperations) return;
+    const entries = fs.readdirSync(folder, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        totalFolders++;
+        countFolders(path.join(folder, entry.name));
+      }
+    }
+  }
+
+  // Second pass: delete empty folders bottom-up
+  function removeEmpty(folder) {
+    if (cancelAllOperations) return;
+
+    const entries = fs.readdirSync(folder, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        removeEmpty(path.join(folder, entry.name));
+      }
+    }
+
+    // After processing children, check if folder is empty
+    const after = fs.readdirSync(folder);
+    if (after.length === 0 && folder !== dirPath) {
+      fs.rmdirSync(folder);
+      deletedCount++;
+
+      event.sender.send('remove-empty-folders-progress', {
+        deletedCount,
+        totalFolders
+      });
+    }
+  }
+
+  try {
+    countFolders(dirPath);
+    removeEmpty(dirPath);
+
+    if (cancelAllOperations) {
+      return { canceled: true, message: 'Operation canceled.' };
+    }
+
+    return {
+      message: `Removed ${deletedCount} empty folder(s).`,
+      deletedCount
+    };
+
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 
 
 
