@@ -20,9 +20,9 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 #### Siril Preparation
 - Recursively scans the selected directory and all subdirectories
-- Detects every file whose name begins with `Light`
-- Creates a `lights/` subdirectory inside each folder where Light files are found
-- Moves each Light file into its corresponding `lights` folder
+- Detects every file whose metadata contains `light`, `darks`, `flat`, and `bias`
+- Creates a subdirectory inside each folder where the corresponding files are found
+- Moves each file into its corresponding folder **overwriting files with the same names**
 - Ideal for preparing directory structures for Siril preprocessing
 - Displays real-time progress using the global progress bar
 - Fully cancelable using the Stop button
@@ -31,11 +31,12 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 ### User Interface
 - **Progress Tracking**: Real-time progress bar with file count updates
 - **Cancelable Scans**: Stop button to abort long-running scans
-- **Dual Table Display**:
+- **Table Display**:
   - **Summary Table**: Target-level aggregation (file count, summed exposure time)
+  - **Catalog Table**: Application automatically identifies which astronomical catalogs your collected targets belong to.
   - **Details Table**: Individual file metadata
 - **Responsive Design**: Clean, readable tables with proper column headers
-- **Siril Prep Workflow**: A dedicated button that automatically organizes Light frames into Siril‑compatible `lights/` subdirectories with progress tracking
+- **Siril Prep Workflow**: A dedicated button that automatically organizes frames (lights, darks, etc) into Siril‑compatible subdirectories with progress tracking
 - **Remove Empty Folders**: A dedicated button that will parse subfolders and remove empty folder left behind once 'Organize Stacked Files' has been used
 
 
@@ -171,37 +172,47 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 4. **View Results**:
    - **Summary Table**: Shows aggregated data per astronomical target
+   - **Catalog Breakdown**: Shows Catalog Objects based on `Summary Table` with classifications for `Messier`|`NGC`|`IC`|`Caldwell`|`Sharpless`|`Barnard`|`Other`
    - **Details Table**: Shows individual file metadata
 
-5. **Organize Stacked Files**:
-    - Click 'Organize Stacked Files'
+### Advanced Tools UI - **NEW**
+ - Hides/Shows the following items
+
+1. **Organize Stacked Files**:
+    - Click `Organize Stacked Files`
         - The app will:
             - Find all `Stacked_*.fit` & `DSO_Stacked_*.fit` files
          - Extract target names
             - Create a `Stacked_/<Target Name>/` folder structure
             - Move each stacked file into its matching target folder -- **overwriting any files with the same name within that folder**
 
-6. **Remove JPG Files**:
+2. **Remove JPG Files**:
     - Click `Remove .jpg FIles`
     - The app will:
-        - Recursively find all .jpg and .jpeg files
+        - Recursively find all `.jpg` and `.jpeg` files
         - Delete them while showing progress
         - Allow cancellation via the Stop button
 
-7. **Siril Prep**:
+3. **Siril Prep**:
     - Click `Siril Prep`
     - The app will:
         - Recursively scan the selected directory and all subdirectories
-        - Find every file whose name begins with `Light`
-        - Create a new subdirectory named `lights` inside each folder where Light files are found
-        - Move each Light file into its corresponding `lights` subdirectory -- **overwriting any files with the same name within that folder**
-        - Display real-time progress updates using the same progress bar used for JPG removal
+        - Skip folders that are already organized
+        - Read the metadata decting (`LIGHT`, `DARK`, `FLAT`, `BIAS`) falling back to filenames like `Light_`, etc.
+        - Move each file into its corresponding subdirectory -- **overwriting any files with the same name within that folder**
+        ```text
+        +--lights/
+        +--darks/
+        +--flats/
+        +--bias/
+        ```
+        - Display real-time progress
         - Allow cancellation at any time using the Stop button
 
-8. **Remove Empty Folders**:
-   - Click 'Remove Empty Folders'
+4. **Remove Empty Folders**:
+   - Click `Remove Empty Folders`
    - The app will:
-      - Scan for any empty folders left behind after 'Organize Stacked Files' has been used
+      - Scan for any empty folders left behind after `Organize Stacked Files` has been used
       - Delete the empty folders
 
 ### Understanding the Output
@@ -259,7 +270,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Included**: `.fit` and `.fits` files (case-insensitive)
 - **Excluded**: Files starting with `Stacked_` (calibration stacks)
 - **JPG Removal**: `.jpg`, `.jpeg` (case-insensitive)
-- **Siril Prep**: Files starting with `Lights` (siril stacking prep)
+- **Siril Prep**: Meta-data that includes information for `light`|`dark`|`flat`|`bias` (siril stacking prep)
 
 ## Troubleshooting
 
@@ -293,7 +304,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - Linux: Check file ownership and permissions
 
 **Siril Prep Didn’t Move Any Files**
-- Ensure your Light frames begin with the exact prefix `Light`
+- Ensure your Light, Dark, Flat, and Bias frames begin with the exact prefix for each, eg;`Light_` (for fallback purposes if the metadata is unreadable/not included)
 - Check that the selected directory contains subfolders with Light files
 - Verify file permissions allow moving files
 
