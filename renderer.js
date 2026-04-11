@@ -66,8 +66,10 @@ scanBtn.addEventListener('click', async () => {
 
   status.textContent = `Found ${result.metadataList.length} FITS files.`;
 
-  summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Total Integration Time']);
-  detailsArea.innerHTML = createTableHTML(result.metadataList, [
+  
+summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Total Integration Time']);
+renderCatalogBreakdown(result.targetSummary);
+detailsArea.innerHTML = createTableHTML(result.metadataList, [
     'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
     'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
     'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
@@ -246,3 +248,49 @@ function createTableHTML(data, columns) {
   }).join('');
   return `<table><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
 }
+
+// Creates Catalog Summary
+function renderCatalogBreakdown(summaryGroups) {
+  const catalogDiv = document.getElementById("catalogBreakdown");
+  if (!catalogDiv) return;
+
+  const catalogCounts = {
+    Messier: 0,
+    NGC: 0,
+    IC: 0,
+    Caldwell: 0,
+    Sharpless: 0,
+    Barnard: 0,
+    Other: 0
+  };
+
+  summaryGroups.forEach(group => {
+    const name = (group.Target || "").toUpperCase();
+
+    if (name.startsWith("M ")) catalogCounts.Messier++;
+    else if (name.startsWith("NGC")) catalogCounts.NGC++;
+    else if (name.startsWith("IC")) catalogCounts.IC++;
+    else if (name.startsWith("CALDWELL")) catalogCounts.Caldwell++;
+    else if (name.startsWith("SH") || name.startsWith("SH2")) catalogCounts.Sharpless++;
+    else if (name.startsWith("BARNARD") || name.startsWith("B ")) catalogCounts.Barnard++;
+    else catalogCounts.Other++;
+  });
+
+  let html = "<table><thead><tr><th>Catalog</th><th>Count</th></tr></thead><tbody>";
+
+  Object.entries(catalogCounts).forEach(([catalog, count]) => {
+    html += `
+      <tr>
+        <td>${catalog}</td>
+        <td>${count}</td>
+      </tr>
+    `;
+  });
+
+  html += "</tbody></table>";
+
+  catalogDiv.innerHTML = html;
+}
+
+
+
