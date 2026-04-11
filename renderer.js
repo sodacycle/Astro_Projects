@@ -82,6 +82,7 @@ detailsArea.innerHTML = createTableHTML(result.metadataList, [
   removeemptyBtn.disabled = false;
 });
 
+// Stops current task
 stopBtn.addEventListener('click', async () => {
   await window.electronAPI.cancelAll();
   status.textContent = 'Cancel requested; waiting for operation to stop...';
@@ -172,7 +173,7 @@ document.getElementById('sirilprepBtn').addEventListener('click', async () => {
 
   progressContainer.style.display = 'block';
   progressBar.value = 0;
-  progressText.textContent = "Moving Light files into lights subdirectory...";
+  progressText.textContent = "Moving files into subdirectories...";
   stopBtn.disabled = false;
 
   window.electronAPI.onSirilprepProgress((event, data) => {
