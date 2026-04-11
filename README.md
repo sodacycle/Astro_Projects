@@ -6,8 +6,8 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 ### Core Functionality
 - **Recursive Directory Scanning**: Searches through selected directory and all subdirectories for FITS files
-- **Smart File Filtering**: Automatically excludes calibration files (those starting with  `Stacked_` & `DSO_Stacked_`)
-- **Custom FITS Parser**: Built-in header parser supporting both .fit and .fits extensions
+- **Smart File Filtering**: Automatically excludes files (`Stacked_`, `DSO_Stacked_` & subfolders such as `/Stacked/` & `process`)
+- **Custom FITS Parser**: Built-in header parser supporting both `.fit` and `.fits` extensions
 - **Target Extraction**: Intelligently extracts target names from filenames or FITS headers
 - **Metadata Aggregation**: Groups files by astronomical target and calculates total integration time
 
@@ -181,10 +181,10 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 1. **Organize Stacked Files**:
     - Click `Organize Stacked Files`
         - The app will:
-            - Find all `Stacked_*.fit` & `DSO_Stacked_*.fit` files
+            - Find all output files by stacking software and Seestar's `Stacked_` &`DSO_Stacked` files
          - Extract target names
-            - Create a `Stacked_/<Target Name>/` folder structure
-            - Move each stacked file into its matching target folder -- **overwriting any files with the same name within that folder**
+            - Create a `/Stacked/` folder structure within the corresponding parent directory
+            - Move each stacked file into the folder -- **overwriting any files with the same name within that folder**
 
 2. **Remove JPG Files**:
     - Click `Remove .jpg FIles`
@@ -208,11 +208,13 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
         ```
         - Display real-time progress
         - Allow cancellation at any time using the Stop button
+   
+   **Seestar** users are recommended to use `Remove Empty Folders` option after using `Siril Prep`
 
 4. **Remove Empty Folders**:
    - Click `Remove Empty Folders`
    - The app will:
-      - Scan for any empty folders left behind after `Organize Stacked Files` has been used
+      - Scan for any empty folders left behind after `Organize Stacked Files` & `Siril Prep` has been used
       - Delete the empty folders
 
 ### Understanding the Output
@@ -268,7 +270,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 ### File Filtering
 - **Included**: `.fit` and `.fits` files (case-insensitive)
-- **Excluded**: Files starting with `Stacked_` (calibration stacks)
+- **Excluded**: Files stacked with stacking software such as Siril, Deepskystacker, and Pixinsight (calibration stacks)
 - **JPG Removal**: `.jpg`, `.jpeg` (case-insensitive)
 - **Siril Prep**: Meta-data that includes information for `light`|`dark`|`flat`|`bias` (siril stacking prep)
 

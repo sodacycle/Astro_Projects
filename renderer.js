@@ -98,7 +98,7 @@ organizeBtn.addEventListener('click', async () => {
 
   progressContainer.style.display = 'block';
   progressBar.value = 0;
-  progressText.textContent = "Beginning to move Stacked files into Stacked_ directory...";
+  progressText.textContent = "Beginning to move Stacked files...";
   stopBtn.disabled = false;
 
   const result = await window.electronAPI.organizeStacked(selectedDirectory);
