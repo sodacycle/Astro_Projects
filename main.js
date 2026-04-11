@@ -539,7 +539,6 @@ try {
   };
 });
 
-
 // Remove empty folders handler
 ipcMain.handle('remove-empty-folders', async (event, dirPath) => {
   cancelAllOperations = false;
