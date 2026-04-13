@@ -207,7 +207,6 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
   return { metadataList, targetSummary };
 });
 
-
 // Known stacking software (case-insensitive)
 const STACKING_SOFTWARE = [
   'siril',
@@ -364,7 +363,7 @@ if (cancelAllOperations) {
     return { canceled: true, deletedCount };
 }
 
-//remove JPG handler
+// Remove JPG handler
 ipcMain.handle('remove-jpg', async (event, dirPath) => {
   cancelAllOperations = false;
 

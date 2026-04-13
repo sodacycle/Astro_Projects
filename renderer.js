@@ -262,18 +262,37 @@ function renderCatalogBreakdown(summaryGroups) {
     Caldwell: 0,
     Sharpless: 0,
     Barnard: 0,
+    LDN: 0,
+    LBN: 0,
+    Abell: 0,
+    PGC: 0,
+    UGC: 0,
     Other: 0
   };
 
   summaryGroups.forEach(group => {
-    const name = (group.Target || "").toUpperCase();
+    let name = (group.Target || "").toUpperCase().trim();
 
+    // Remove mosaic descriptors
+    name = name
+      .replace(/MOSAIC/g, "")
+      .replace(/PANEL/g, "")
+      .replace(/-/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Catalog detection
     if (name.startsWith("M ")) catalogCounts.Messier++;
     else if (name.startsWith("NGC")) catalogCounts.NGC++;
     else if (name.startsWith("IC")) catalogCounts.IC++;
     else if (name.startsWith("CALDWELL")) catalogCounts.Caldwell++;
     else if (name.startsWith("SH") || name.startsWith("SH2")) catalogCounts.Sharpless++;
     else if (name.startsWith("BARNARD") || name.startsWith("B ")) catalogCounts.Barnard++;
+    else if (name.startsWith("LDN")) catalogCounts.LDN++;
+    else if (name.startsWith("LBN")) catalogCounts.LBN++;
+    else if (name.startsWith("ABELL")) catalogCounts.Abell++;
+    else if (name.startsWith("PGC")) catalogCounts.PGC++;
+    else if (name.startsWith("UGC")) catalogCounts.UGC++;
     else catalogCounts.Other++;
   });
 
@@ -292,6 +311,8 @@ function renderCatalogBreakdown(summaryGroups) {
 
   catalogDiv.innerHTML = html;
 }
+
+
 
 
 
