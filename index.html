@@ -12,30 +12,85 @@
     th, td { padding: 8px 10px; border: 1px solid #bbbbbb; text-align: left; font-size: 0.9rem; }
     th { background: #9cc8f1; font-weight: bold; position: sticky; top: 0; z-index: 10; }
     #summary, #details { margin-top: 10px; overflow-x: auto; max-height: 500px; overflow-y: auto; border: 1px solid #ccc; }
+
+    /*  Proper Advanced Tools CSS */
+    #advancedBox {
+      margin-top: 16px;
+      padding: 12px;
+      border: 2px solid #888;
+      background: #d4d4d4;
+      border-radius: 6px;
+      max-width: 600px;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.35s ease, opacity 0.35s ease;
+    }
+
+    #advancedBox.open {
+      max-height: 500px;
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
   <h1>FITS Metadata Viewer</h1>
   <p>Select a directory with .fit files; subdirectories are automatically scanned.</p>
+
   <button id="selectDir" title="Select a directory to scan and process.">Select Directory</button>
   <button id="scanBtn" title="Start scanning the selected directory for FITS files.">Scan FIT</button>
-  <button id="stopBtn" title="Cancels the currently running operation." disabled>Stop</button>
-  <button id="organizeBtn" title="Organize the scanned Stacked/DSO_Stacked FITS files into a /Stacked_ directory." disabled>Organize Stacked Files</button>
-  <button id="removejpgBtn" title="Remove all jpg & jpeg files from the selected directory in an effort to save disk space. Must be used with caution." disabled>Remove .jpg Files</button>
-  <button id="sirilprepBtn" title="Moves Light files into a /lights subdirectory within Object folders." disabled>Siril Prep</button>
-  <button id="removeemptyBtn" title="Remove empty folders from the selected directory." disabled>Remove Empty Folders</button>
-  <div id="selectedPath" style="margin-top:10px; font-size:0.95rem; color:#333;"></div>
+  <button id="stopBtn" title="Cancels the currently running operation."  disabled>Stop</button>
+
+  <!--  Toggle Button -->
+  <button id="toggleAdvanced" title="Show/Hide Advanced Options" style="margin-top:16px;">
+    Show Advanced Tools
+  </button>
+
+  <!--  Hidden Advanced Tools Box -->
+  <div id="advancedBox">
+    <h3 style="margin-top:0;">Advanced Features</h3>
+
+    <button id="organizeBtn" title="Organize the scanned Stacked/DSO_Stacked FITS files into a /Stacked_ directory." disabled>Organize Stacked Files</button>
+    <button id="removejpgBtn" title="Remove all jpg & jpeg files from the selected directory in an effort to save disk space. Must be used with caution." disabled>Remove .jpg Files</button>
+    <button id="sirilprepBtn" title="Moves files into a subdirectory within Object folders based on light, dark, flat, or bias." disabled>Siril Prep</button>
+    <button id="removeemptyBtn" title="Remove empty folders from the selected directory."disabled>Remove Empty Folders</button>
+  </div>
+
+  <div id="selectedPath" style="margin-top:10px;"></div>
   <div id="status"></div>
+
   <div id="progressContainer" style="margin:10px 0; display:none;">
     <progress id="progressBar" value="0" max="100" style="width:100%; height:20px;"></progress>
-    <div id="progressText" style="margin-top:5px; font-size:0.9rem;"></div>
+    <div id="progressText" style="margin-top:5px;"></div>
   </div>
 
   <h2>Target Summary</h2>
   <div id="summary"></div>
 
+  <!-- Catalog Summary -->
+ <h2>Catalog Breakdown</h2>
+<div id="catalogBreakdown" style="
+  margin-top: 10px;
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+"></div>
+
+
   <h2>File-Level Details</h2>
   <div id="details"></div>
+
+  <!--  Toggle Script -->
+  <script>
+    const toggleBtn = document.getElementById('toggleAdvanced');
+    const advancedBox = document.getElementById('advancedBox');
+
+    toggleBtn.addEventListener('click', () => {
+      const isOpen = advancedBox.classList.toggle('open');
+      toggleBtn.textContent = isOpen ? 'Hide Advanced Tools' : 'Show Advanced Tools';
+    });
+  </script>
 
   <script src="renderer.js"></script>
 </body>

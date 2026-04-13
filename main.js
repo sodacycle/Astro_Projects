@@ -34,20 +34,30 @@ ipcMain.handle('select-directory', async () => {
 });
 
 function walkDirectory(dir, filelist = []) {
+  const skipDirs = new Set(['process', 'Stacked', 'stacked']); // sets directories to ignore for scanFITS
+
   const files = fs.readdirSync(dir);
-    files.forEach((file) => {
+  files.forEach((file) => {
     const fullPath = path.join(dir, file);
     const stats = fs.statSync(fullPath);
     const isFits = (/\.fit$|\.fits$/i.test(file));
     const isStacked = file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_');
+
     if (stats.isDirectory()) {
+
+      // Skip unwanted directories
+      if (skipDirs.has(file.toLowerCase())) return;
+
       walkDirectory(fullPath, filelist);
-    } else if (isFits && !isStacked) {
+    } 
+    else if (isFits && !isStacked) {
       filelist.push(fullPath);
     }
   });
+
   return filelist;
 }
+
 
 function anyField(header, keys, fallback = 'Unknown') {
   for (const key of keys) {
@@ -80,7 +90,7 @@ ipcMain.handle('cancel-all', () => {
   return { canceled: true };
 });
 
-
+// Scan Fit Files Metadata
 ipcMain.handle('scan-fits', async (event, dirPath) => {
   cancelAllOperations = false;
   if (!dirPath) return { error: 'No directory path provided.' };
@@ -197,43 +207,93 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
   return { metadataList, targetSummary };
 });
 
-// Organize Stacked_ files handler
+
+// Known stacking software (case-insensitive)
+const STACKING_SOFTWARE = [
+  'siril',
+  'deepskystacker',
+  'dss',
+  'pixinsight',
+  'astropixelprocessor',
+  'app',
+  'autostakkert',
+  'registax',
+  'sequator',
+  'starry landscape stacker'
+];
+
+// Check FITS metadata for stacking software
+function metadataIndicatesStacking(header) {
+  if (!header) return false;
+
+  const keysToCheck = ['PROGRAM', 'SOFTWARE', 'CREATOR', 'HISTORY', 'COMMENT'];
+
+  for (const key of keysToCheck) {
+    const value = header[key];
+    if (!value) continue;
+
+    const lower = String(value).toLowerCase();
+    if (STACKING_SOFTWARE.some(name => lower.includes(name))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Organize Files
 ipcMain.handle('organize-stacked', async (event, dirPath) => {
   cancelAllOperations = false;
 
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
+
   try {
-    // Recursively find all Stacked_ and DSO_Stacked_ files
+    // Recursively find stacked files
     function findStackedFiles(dir, list = []) {
       const files = fs.readdirSync(dir);
+      
+
       files.forEach((file) => {
         const fullPath = path.join(dir, file);
         const stats = fs.statSync(fullPath);
 
         if (stats.isDirectory()) {
-          findStackedFiles(fullPath, list);
-        } else if (
-  (/\.fit$|\.fits$/i.test(file)) &&
-  (file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_'))
-) {
+
+  // Ignore any folder named "process"
+  if (file.toLowerCase() === 'process') return;
+
+  findStackedFiles(fullPath, list);
+  return;
+}
+
+
+        if (!/\.fit$|\.fits$/i.test(file)) return;
+
+        const isStackedByName =
+          file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_');
+
+        let isStackedByMetadata = false;
+
+        try {
+          const header = parseFitsHeader(fullPath);
+          isStackedByMetadata = metadataIndicatesStacking(header);
+        } catch (err) {
+          console.warn(`Failed to read FITS header for ${file}`, err);
+        }
+
+        if (isStackedByName || isStackedByMetadata) {
           list.push(fullPath);
         }
       });
-      return list;
-    }
 
-    // Create Stacked_ directory
-    const stackedDir = path.join(dirPath, 'Stacked_');
-    if (!fs.existsSync(stackedDir)) {
-      fs.mkdirSync(stackedDir, { recursive: true });
+      return list;
     }
 
     const stackedFiles = findStackedFiles(dirPath);
     const total = stackedFiles.length;
 
-    // Send initial progress
     event.sender.send('organize-progress', {
       current: 0,
       total,
@@ -250,31 +310,26 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
       }
 
       const filePath = stackedFiles[i];
-      const filename = path.basename(filePath);
+const filename = path.basename(filePath);
+const parentDir = path.dirname(filePath);
 
-      // Extract target name
-      const match = filename.match(/^(?:Stacked_|DSO_Stacked_)\d+_(.+?)_\d+\.\d+s/);
-      if (!match) continue;
+// Create "Stacked" folder inside the file's own directory
+const stackedDir = path.join(parentDir, 'Stacked');
+if (!fs.existsSync(stackedDir)) {
+  fs.mkdirSync(stackedDir, { recursive: true });
+}
 
-      const targetName = match[1].replace(/_/g, ' ');
-      targets.add(targetName);
+// Always move directly into /Stacked/
+const destPath = path.join(stackedDir, filename);
 
-      const targetDir = path.join(stackedDir, targetName);
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
+try {
+  fs.renameSync(filePath, destPath);
+  movedFiles.push({ from: filePath, to: destPath });
+} catch (err) {
+  console.error(`Failed to move ${filePath}`, err);
+}
 
-      const destPath = path.join(targetDir, filename);
 
-      // MOVE instead of copy
-      try {
-        fs.renameSync(filePath, destPath);
-        movedFiles.push({ from: filePath, to: destPath });
-      } catch (err) {
-        console.error(`Failed to move ${filePath}`, err);
-      }
-
-      // Progress update every 10 files
       if (i % 10 === 0) {
         await new Promise(resolve => setImmediate(resolve));
         event.sender.send('organize-progress', {
@@ -285,7 +340,7 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
       }
     }
 
-    // Final progress update
+    // Final Progress Update
     event.sender.send('organize-progress', {
       current: total,
       total,
@@ -389,95 +444,155 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
-  try {
-    // Recursively find all Light* files, but skip existing "lights" folders
-    function findLightFiles(dir, list = []) {
-      const files = fs.readdirSync(dir);
+  // Directories to skip (already organized)
+  const skipDirs = new Set(['lights', 'darks', 'flats', 'bias', 'process', 'Stacked', 'stacked']);
 
-      files.forEach((file) => {
-        const fullPath = path.join(dir, file);
-        const stats = fs.statSync(fullPath);
+  // Output folders
+  const outDirs = {
+    LIGHT: path.join(dirPath, 'lights'),
+    DARK: path.join(dirPath, 'darks'),
+    FLAT: path.join(dirPath, 'flats'),
+    BIAS: path.join(dirPath, 'bias')
+  };
 
-        if (stats.isDirectory()) {
-          // 🔥 FIX 1: Skip scanning any existing "lights" folder
-          if (file.toLowerCase() === 'lights') return;
-          findLightFiles(fullPath, list);
-        } 
-        else if (/^Light/i.test(file)) {
-          list.push(fullPath);
+  for (const key in outDirs) {
+    if (!fs.existsSync(outDirs[key])) {
+      fs.mkdirSync(outDirs[key], { recursive: true });
+    }
+  }
+
+  // Recursively walk directory but skip already-organized folders
+  function walk(dir, list = []) {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      const full = path.join(dir, file);
+      const stat = fs.statSync(full);
+
+      if (stat.isDirectory()) {
+        if (!skipDirs.has(file.toLowerCase())) {
+          walk(full, list);
         }
+      } else if (/\.fit$|\.fits$/i.test(file)) {
+        list.push(full);
+      }
+    }
+    return list;
+  }
+
+  const fitsFiles = walk(dirPath);
+  const total = fitsFiles.length;
+
+  event.sender.send('sirilprep-progress', {
+    current: 0,
+    total,
+    status: 'Scanning FITS files...'
+  });
+
+  const moved = [];
+  const logEntries = [];
+
+  function detectFrameType(header, filename) {
+    // 1. Metadata-based detection
+    let type = anyField(header, ['IMAGETYP', 'IMTYPE', 'FRAME', 'TYPE'], '').toUpperCase();
+
+    if (type.includes('LIGHT')) return { type: 'LIGHT', method: 'metadata' };
+    if (type.includes('DARK')) return { type: 'DARK', method: 'metadata' };
+    if (type.includes('FLAT')) return { type: 'FLAT', method: 'metadata' };
+    if (type.includes('BIAS')) return { type: 'BIAS', method: 'metadata' };
+
+    // 2. Filename fallback
+    const f = filename.toUpperCase();
+
+    if (f.startsWith('LIGHT_')) return { type: 'LIGHT', method: 'filename' };
+    if (f.startsWith('DARK_') || f.startsWith('DSO_DARK_')) return { type: 'DARK', method: 'filename' };
+    if (f.startsWith('FLAT_') || f.startsWith('DSO_FLAT_')) return { type: 'FLAT', method: 'filename' };
+    if (f.startsWith('BIAS_')) return { type: 'BIAS', method: 'filename' };
+
+    return { type: null, method: null };
+  }
+
+  for (let i = 0; i < fitsFiles.length; i++) {
+    if (cancelAllOperations) {
+      cancelAllOperations = false;
+      return { canceled: true, moved };
+    }
+
+    const filePath = fitsFiles[i];
+    const filename = path.basename(filePath);
+
+    let header = {};
+    try {
+      header = parseFitsHeader(filePath);
+    } catch (err) {
+      console.warn('Failed to read FITS header:', filePath);
+    }
+
+    const { type, method } = detectFrameType(header, filename);
+
+    if (!type || !outDirs[type]) {
+      continue; // Skip unknown types
+    }
+
+    const dest = path.join(outDirs[type], filename);
+
+    try {
+      fs.renameSync(filePath, dest);
+      moved.push({ from: filePath, to: dest });
+
+      logEntries.push({
+        file: filename,
+        from: filePath,
+        to: dest,
+        frameType: type,
+        detectionMethod: method,
+        timestamp: new Date().toISOString()
       });
 
-      return list;
+    } catch (err) {
+      console.error(`Failed to move ${filePath}`, err);
     }
 
-    const lightFiles = findLightFiles(dirPath);
-    const total = lightFiles.length;
-
-    event.sender.send('sirilprep-progress', {
-      current: 0,
-      total,
-      status: 'Preparing Light frames...'
-    });
-
-    let movedCount = 0;
-
-    for (let i = 0; i < lightFiles.length; i++) {
-      if (cancelAllOperations) {
-        cancelAllOperations = false;
-        return { canceled: true, movedCount };
-      }
-
-      const filePath = lightFiles[i];
-      const parentDir = path.dirname(filePath);
-
-      // 🔥 FIX 2: Skip Light files already inside a "lights" folder
-      if (parentDir.toLowerCase().endsWith('lights')) {
-        continue;
-      }
-
-      const lightsDir = path.join(parentDir, 'lights');
-
-      if (!fs.existsSync(lightsDir)) {
-        fs.mkdirSync(lightsDir, { recursive: true });
-      }
-
-      const destPath = path.join(lightsDir, path.basename(filePath));
-
-      try {
-        fs.renameSync(filePath, destPath);
-        movedCount++;
-      } catch (err) {
-        console.error(`Failed to move ${filePath}`, err);
-      }
-
-      if (i % 10 === 0) {
-        await new Promise(resolve => setImmediate(resolve));
-        event.sender.send('sirilprep-progress', {
-          current: i,
-          total,
-          status: `Moving Light frames (${i}/${total})...`
-        });
-      }
+    if (i % 10 === 0) {
+      await new Promise(resolve => setImmediate(resolve));
+      event.sender.send('sirilprep-progress', {
+        current: i,
+        total,
+        status: `Organizing files (${i}/${total})...`
+      });
     }
-
-    event.sender.send('sirilprep-progress', {
-      current: total,
-      total,
-      status: 'Light frame organization complete!'
-    });
-
-    return {
-      success: true,
-      movedCount,
-      message: `Moved ${movedCount} Light frames into /lights subdirectories.`
-    };
-
-  } catch (err) {
-    return { error: `Failed to prepare Light frames: ${err.message}` };
   }
-});
 
+// Write log file as plain text
+const logPath = path.join(dirPath, 'sirilprep-log.txt');
+try {
+  const lines = logEntries.map(entry => {
+    return [
+      `[${entry.timestamp}] ${entry.frameType.padEnd(5)} | ${entry.detectionMethod.padEnd(8)} | ${entry.file}`,
+      `    FROM: ${entry.from}`,
+      `    TO:   ${entry.to}`,
+      ``
+    ].join('\n');
+  }).join('\n');
+
+  fs.writeFileSync(logPath, lines, 'utf8');
+} catch (err) {
+  console.error('Failed to write log file:', err);
+}
+
+
+  event.sender.send('sirilprep-progress', {
+    current: total,
+    total,
+    status: 'Siril Prep complete!'
+  });
+
+  return {
+    success: true,
+    moved,
+    logPath,
+    message: `Organized ${moved.length} files into lights/darks/flats/bias folders.`
+  };
+});
 
 // Remove empty folders handler
 ipcMain.handle('remove-empty-folders', async (event, dirPath) => {
