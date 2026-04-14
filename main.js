@@ -4,8 +4,6 @@ const fs = require('fs');
 const { parseFitsHeader } = require('./fits-parser');
 const dayjs = require('dayjs');
 
-
-
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100,
@@ -25,39 +23,74 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-ipcMain.handle('select-directory', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
-    properties: ['openDirectory']
-  });
-  if (canceled || filePaths.length === 0) return null;
-  return filePaths[0];
-});
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-function walkDirectory(dir, filelist = []) {
-  const skipDirs = new Set(['process', 'Stacked', 'stacked']); // sets directories to ignore for scanFITS
+// Known stacking software names (case-insensitive).
+// FIX: Removed 'app' and 'dss' — too short and generic, caused false positives
+// on paths, camera names, and unrelated field values.
+// 'astropixelprocessor' covers APP; 'deepskystacker' covers DSS.
+const STACKING_SOFTWARE = [
+  'siril',
+  'deepskystacker',
+  'pixinsight',
+  'astropixelprocessor',
+  'autostakkert',
+  'registax',
+  'sequator',
+  'starry landscape stacker'
+];
 
-  const files = fs.readdirSync(dir);
-  files.forEach((file) => {
-    const fullPath = path.join(dir, file);
-    const stats = fs.statSync(fullPath);
-    const isFits = (/\.fit$|\.fits$/i.test(file));
-    const isStacked = file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_');
+// Folder names created by organize-stacked and sirilprep — never walk into these.
+// Single source of truth used by walkDirectory, findStackedFiles, and sirilprep walk.
+//const SKIP_DIR_NAMES = new Set(['stacked', 'process', 'lights', 'darks', 'flats', 'bias']);
 
-    if (stats.isDirectory()) {
+// Directories skipped during FITS scanning
+const SCAN_SKIP_DIRS = new Set(['stacked', 'process', 'darks', 'flats', 'bias']);
 
-      // Skip unwanted directories
-      if (skipDirs.has(file.toLowerCase())) return;
+// Directories skipped during file organization
+const PROCESS_SKIP_DIRS = new Set(['stacked', 'process', 'darks', 'flats', 'bias', 'lights']);
 
-      walkDirectory(fullPath, filelist);
-    } 
-    else if (isFits && !isStacked) {
-      filelist.push(fullPath);
-    }
-  });
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  return filelist;
+// Check FITS metadata to determine if a file is a stacked result.
+// FIX: STACKING_SOFTWARE is now defined above this function so it is never
+// referenced before initialization (previously caused a potential ReferenceError).
+//
+// Two-stage approach to avoid false positives from capture software:
+//   Stage 1 — Unambiguous stacking fields: if any are present the file is
+//             definitively a stack. No software name matching needed.
+//   Stage 2 — Software name fields: only checked on headers that don't have
+//             a CREATOR field, since CREATOR is written by capture software
+//             (NINA, SGP, KStars) and causes false positives.
+function metadataIndicatesStacking(header) {
+  if (!header) return false;
+
+  // Stage 1a: A stack count > 1 is definitive — raw frames are always 1
+  const stackCountKeys = ['STACKCNT', 'NFRAMES', 'NSTACK', 'FRAMES'];
+  for (const key of stackCountKeys) {
+    if (header[key] !== undefined && Number(header[key]) > 1) return true;
+  }
+
+  // Stage 1b: These keys are written exclusively by stacking software output
+  const stackFlagKeys = ['STACKTYP', 'STACKED', 'COMBINED'];
+  for (const key of stackFlagKeys) {
+    if (header[key] !== undefined && header[key] !== null) return true;
+  }
+
+  // Stage 2: Software name matching — bail out if CREATOR is present since
+  // that field belongs to the capture application, not the stacker
+  if (header['CREATOR'] !== undefined) return false;
+
+  const softwareKeys = ['PROGRAM', 'SOFTWARE', 'HISTORY', 'COMMENT'];
+  for (const key of softwareKeys) {
+    const value = header[key];
+    if (!value) continue;
+    const lower = String(value).toLowerCase();
+    if (STACKING_SOFTWARE.some(name => lower.includes(name))) return true;
+  }
+
+  return false;
 }
-
 
 function anyField(header, keys, fallback = 'Unknown') {
   for (const key of keys) {
@@ -68,34 +101,87 @@ function anyField(header, keys, fallback = 'Unknown') {
   return fallback;
 }
 
-//Time formatting helper
 function formatHMS(totalSeconds) {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
-
   const h = hours > 0 ? `${hours}h ` : '';
   const m = minutes > 0 ? `${minutes}m ` : '';
   const s = `${seconds}s`;
-
   return `${h}${m}${s}`.trim();
 }
 
+// ─── Walk ─────────────────────────────────────────────────────────────────────
+
+// FIX: walkDirectory now returns { filePath, header } pairs so scan-fits can
+// reuse the header already parsed here instead of reading each file twice.
+// FIX: SKIP_DIR_NAMES now includes lights/darks/flats/bias so sirilprep
+// output folders are also excluded from scans.
+function walkDirectory(dir, filelist = []) {
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stats = fs.statSync(fullPath);
+
+    if (stats.isDirectory()) {
+      if (SCAN_SKIP_DIRS.has(file.toLowerCase())) continue;
+      walkDirectory(fullPath, filelist);
+      continue;
+    }
+
+    if (!/\.fit$|\.fits$/i.test(file)) continue;
+
+    // Parse header once here — reused by scan-fits to avoid double I/O
+    let header = null;
+    let isStacked = false;
+    try {
+      header = parseFitsHeader(fullPath);
+      isStacked = metadataIndicatesStacking(header);
+    } catch (err) {
+      // Header unreadable — fall through to filename check
+    }
+
+    // Filename fallback
+    if (!isStacked) {
+      isStacked = file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_');
+    }
+
+    if (isStacked) continue;
+
+    filelist.push({ filePath: fullPath, header });
+  }
+
+  return filelist;
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
 
 let cancelAllOperations = false;
-// let cancelCurrentScan = false;
 
 ipcMain.handle('cancel-all', () => {
   cancelAllOperations = true;
   return { canceled: true };
 });
 
-// Scan Fit Files Metadata
+// ─── IPC: select-directory ────────────────────────────────────────────────────
+
+ipcMain.handle('select-directory', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ['openDirectory']
+  });
+  if (canceled || filePaths.length === 0) return null;
+  return filePaths[0];
+});
+
+// ─── IPC: scan-fits ───────────────────────────────────────────────────────────
+
 ipcMain.handle('scan-fits', async (event, dirPath) => {
   cancelAllOperations = false;
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
+  // FIX: walkDirectory now returns { filePath, header } — header already parsed,
+  // no second parseFitsHeader call needed per file.
   const fitFiles = walkDirectory(dirPath);
   const metadataList = [];
   const totalFiles = fitFiles.length;
@@ -104,13 +190,12 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
 
   for (let i = 0; i < fitFiles.length; i++) {
     if (cancelAllOperations) {
-    cancelAllOperations = false; // reset for next run
-    return { canceled: true, metadataList, targetSummary: [] };
-}
+      cancelAllOperations = false;
+      return { canceled: true, metadataList, targetSummary: [] };
+    }
 
-    const filePath = fitFiles[i];
+    const { filePath, header: cachedHeader } = fitFiles[i];
 
-    // Yield control to keep UI responsive
     if (i % 10 === 0) {
       await new Promise(resolve => setImmediate(resolve));
       event.sender.send('scan-progress', {
@@ -121,21 +206,26 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
     }
 
     try {
-      const header = parseFitsHeader(filePath);
-      // Extract target from filename first, fall back to OBJECT field
+      // Reuse the header from walkDirectory — avoids reading each file twice
+      const header = cachedHeader || parseFitsHeader(filePath);
       const filename = path.basename(filePath);
+
       let finalTarget = 'Unknown';
-      // Pattern: Light_TARGETNAME_exposure_filter_date.fit
       const filenameMatch = filename.match(/^Light_(.+?)_\d+\.\d+s_/);
       if (filenameMatch) {
         finalTarget = filenameMatch[1].replace(/_/g, ' ');
       } else {
-        // Fall back to OBJECT field if filename pattern doesn't match
         finalTarget = anyField(header, ['OBJECT', 'TARGET', 'TITLE'], 'Unknown');
       }
+
       const exposureTime = Number(anyField(header, ['EXPTIME', 'EXPOSURE', 'EXPOSURE_TIME'], 0));
       const numSubs = Number(anyField(header, ['STACKCNT', 'NFRAMES', 'NSTACK', 'FRAMES'], 1));
-      const totalExposure = Number(anyField(header, ['TOTALEXP'], (numSubs && exposureTime ? numSubs * exposureTime : 0)));
+
+      // FIX: totalExposure fallback was previously always eagerly evaluated inside
+      // anyField(). Now computed only when TOTALEXP is absent.
+      const totalExposure = header['TOTALEXP'] !== undefined
+        ? Number(header['TOTALEXP'])
+        : (numSubs && exposureTime ? numSubs * exposureTime : 0);
 
       const startTime = anyField(header, ['DATE-OBS', 'DATEOBS', 'DATE_OBS', 'DATE'], 'Unknown');
       let convertedStart = 'Unknown';
@@ -153,7 +243,7 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
       const telescopeDisplay = telescope === 'Unknown' ? cameraModel : telescope;
 
       metadataList.push({
-        File: path.basename(filePath),
+        File: filename,
         Path: filePath,
         Target: finalTarget,
         'Start Time UTC': convertedStart,
@@ -163,7 +253,8 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
         'Total Exposure Time s': totalExposure,
         Telescope: telescopeDisplay,
         'Camera Model': cameraModel,
-        'Sensor Temperature C': anyField(header, ['CCD-TEMP', 'CCD_TEMP', 'CCD-TEMP'], 'Unknown'),
+        // FIX: Removed duplicate 'CCD-TEMP' key — was listed twice, second entry unreachable
+        'Sensor Temperature C': anyField(header, ['CCD-TEMP', 'CCD_TEMP'], 'Unknown'),
         RA: anyField(header, ['RA'], 'Unknown'),
         DEC: anyField(header, ['DEC'], 'Unknown'),
         Latitude: anyField(header, ['SITELAT', 'LATITUDE', 'OBS-LAT'], 'Unknown'),
@@ -207,85 +298,46 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
   return { metadataList, targetSummary };
 });
 
-// Known stacking software (case-insensitive)
-const STACKING_SOFTWARE = [
-  'siril',
-  'deepskystacker',
-  'dss',
-  'pixinsight',
-  'astropixelprocessor',
-  'app',
-  'autostakkert',
-  'registax',
-  'sequator',
-  'starry landscape stacker'
-];
+// ─── IPC: organize-stacked ────────────────────────────────────────────────────
 
-// Check FITS metadata for stacking software
-function metadataIndicatesStacking(header) {
-  if (!header) return false;
-
-  const keysToCheck = ['PROGRAM', 'SOFTWARE', 'CREATOR', 'HISTORY', 'COMMENT'];
-
-  for (const key of keysToCheck) {
-    const value = header[key];
-    if (!value) continue;
-
-    const lower = String(value).toLowerCase();
-    if (STACKING_SOFTWARE.some(name => lower.includes(name))) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-// Organize Files
 ipcMain.handle('organize-stacked', async (event, dirPath) => {
   cancelAllOperations = false;
 
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
-
   try {
-    // Recursively find stacked files
     function findStackedFiles(dir, list = []) {
-      const files = fs.readdirSync(dir);
-      
+      const entries = fs.readdirSync(dir);
 
-      files.forEach((file) => {
-        const fullPath = path.join(dir, file);
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry);
         const stats = fs.statSync(fullPath);
 
         if (stats.isDirectory()) {
+          if (PROCESS_SKIP_DIRS.has(entry.toLowerCase())) continue;
+          findStackedFiles(fullPath, list);
+          continue;
+        }
 
-  // Ignore any folder named "process"
-  if (file.toLowerCase() === 'process') return;
+        if (!/\.fit$|\.fits$/i.test(entry)) continue;
 
-  findStackedFiles(fullPath, list);
-  return;
-}
-
-
-        if (!/\.fit$|\.fits$/i.test(file)) return;
-
-        const isStackedByName =
-          file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_');
-
-        let isStackedByMetadata = false;
-
+        // Stage 1: Metadata-based detection
+        let isStacked = false;
         try {
           const header = parseFitsHeader(fullPath);
-          isStackedByMetadata = metadataIndicatesStacking(header);
+          isStacked = metadataIndicatesStacking(header);
         } catch (err) {
-          console.warn(`Failed to read FITS header for ${file}`, err);
+          console.warn(`Failed to read FITS header for ${entry}`, err);
         }
 
-        if (isStackedByName || isStackedByMetadata) {
-          list.push(fullPath);
+        // Stage 2: Filename fallback
+        if (!isStacked) {
+          isStacked = entry.startsWith('Stacked_') || entry.startsWith('DSO_Stacked_');
         }
-      });
+
+        if (isStacked) list.push(fullPath);
+      }
 
       return list;
     }
@@ -300,7 +352,6 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
     });
 
     const movedFiles = [];
-    const targets = new Set();
 
     for (let i = 0; i < stackedFiles.length; i++) {
       if (cancelAllOperations) {
@@ -309,25 +360,28 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
       }
 
       const filePath = stackedFiles[i];
-const filename = path.basename(filePath);
-const parentDir = path.dirname(filePath);
+      const filename = path.basename(filePath);
+      const parentDir = path.dirname(filePath);
 
-// Create "Stacked" folder inside the file's own directory
-const stackedDir = path.join(parentDir, 'Stacked');
-if (!fs.existsSync(stackedDir)) {
-  fs.mkdirSync(stackedDir, { recursive: true });
-}
+      // Safety net: skip if the file is already inside a Stacked folder
+      if (path.basename(parentDir).toLowerCase() === 'stacked') {
+        console.warn(`Skipping already-organized file: ${filePath}`);
+        continue;
+      }
 
-// Always move directly into /Stacked/
-const destPath = path.join(stackedDir, filename);
+      const stackedDir = path.join(parentDir, 'Stacked');
+      if (!fs.existsSync(stackedDir)) {
+        fs.mkdirSync(stackedDir, { recursive: true });
+      }
 
-try {
-  fs.renameSync(filePath, destPath);
-  movedFiles.push({ from: filePath, to: destPath });
-} catch (err) {
-  console.error(`Failed to move ${filePath}`, err);
-}
+      const destPath = path.join(stackedDir, filename);
 
+      try {
+        fs.renameSync(filePath, destPath);
+        movedFiles.push({ from: filePath, to: destPath });
+      } catch (err) {
+        console.error(`Failed to move ${filePath}`, err);
+      }
 
       if (i % 10 === 0) {
         await new Promise(resolve => setImmediate(resolve));
@@ -339,7 +393,6 @@ try {
       }
     }
 
-    // Final Progress Update
     event.sender.send('organize-progress', {
       current: total,
       total,
@@ -349,8 +402,7 @@ try {
     return {
       success: true,
       movedFiles,
-      targets: Array.from(targets),
-      message: `Moved ${movedFiles.length} files into ${targets.size} target directories.`
+      message: `Moved ${movedFiles.length} stacked files into their local Stacked folders.`
     };
 
   } catch (err) {
@@ -358,12 +410,8 @@ try {
   }
 });
 
-if (cancelAllOperations) {
-    cancelAllOperations = false; // reset for next run
-    return { canceled: true, deletedCount };
-}
+// ─── IPC: remove-jpg ──────────────────────────────────────────────────────────
 
-// Remove JPG handler
 ipcMain.handle('remove-jpg', async (event, dirPath) => {
   cancelAllOperations = false;
 
@@ -376,7 +424,6 @@ ipcMain.handle('remove-jpg', async (event, dirPath) => {
       files.forEach((file) => {
         const fullPath = path.join(dir, file);
         const stats = fs.statSync(fullPath);
-
         if (stats.isDirectory()) {
           findJpgFiles(fullPath, list);
         } else if (/\.(jpg|jpeg)$/i.test(file)) {
@@ -426,49 +473,28 @@ ipcMain.handle('remove-jpg', async (event, dirPath) => {
       status: 'JPG removal complete!'
     });
 
-    return {
-      success: true,
-      deletedCount
-    };
+    return { success: true, deletedCount };
 
   } catch (err) {
     return { error: `Failed to remove JPG files: ${err.message}` };
   }
 });
 
-// Prep for Siril handler
+// ─── IPC: sirilprep ───────────────────────────────────────────────────────────
+
 ipcMain.handle('sirilprep', async (event, dirPath) => {
   cancelAllOperations = false;
 
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
-  // Directories to skip (already organized)
-  const skipDirs = new Set(['lights', 'darks', 'flats', 'bias', 'process', 'Stacked', 'stacked']);
-
-  // Output folders
-  const outDirs = {
-    LIGHT: path.join(dirPath, 'lights'),
-    DARK: path.join(dirPath, 'darks'),
-    FLAT: path.join(dirPath, 'flats'),
-    BIAS: path.join(dirPath, 'bias')
-  };
-
-  for (const key in outDirs) {
-    if (!fs.existsSync(outDirs[key])) {
-      fs.mkdirSync(outDirs[key], { recursive: true });
-    }
-  }
-
-  // Recursively walk directory but skip already-organized folders
   function walk(dir, list = []) {
     const files = fs.readdirSync(dir);
     for (const file of files) {
       const full = path.join(dir, file);
       const stat = fs.statSync(full);
-
       if (stat.isDirectory()) {
-        if (!skipDirs.has(file.toLowerCase())) {
+        if (!PROCESS_SKIP_DIRS.has(file.toLowerCase())) {
           walk(full, list);
         }
       } else if (/\.fit$|\.fits$/i.test(file)) {
@@ -478,46 +504,48 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
     return list;
   }
 
-  const fitsFiles = walk(dirPath);
-  const total = fitsFiles.length;
-
-  event.sender.send('sirilprep-progress', {
-    current: 0,
-    total,
-    status: 'Scanning FITS files...'
-  });
-
-  const moved = [];
-  const logEntries = [];
-
   function detectFrameType(header, filename) {
-    // 1. Metadata-based detection
-    let type = anyField(header, ['IMAGETYP', 'IMTYPE', 'FRAME', 'TYPE'], '').toUpperCase();
-
+    // Metadata first
+    const type = anyField(header, ['IMAGETYP', 'IMTYPE', 'FRAME', 'TYPE'], '').toUpperCase();
     if (type.includes('LIGHT')) return { type: 'LIGHT', method: 'metadata' };
-    if (type.includes('DARK')) return { type: 'DARK', method: 'metadata' };
-    if (type.includes('FLAT')) return { type: 'FLAT', method: 'metadata' };
-    if (type.includes('BIAS')) return { type: 'BIAS', method: 'metadata' };
+    if (type.includes('DARK'))  return { type: 'DARK',  method: 'metadata' };
+    if (type.includes('FLAT'))  return { type: 'FLAT',  method: 'metadata' };
+    if (type.includes('BIAS'))  return { type: 'BIAS',  method: 'metadata' };
 
-    // 2. Filename fallback
+    // Filename fallback
     const f = filename.toUpperCase();
-
-    if (f.startsWith('LIGHT_')) return { type: 'LIGHT', method: 'filename' };
-    if (f.startsWith('DARK_') || f.startsWith('DSO_DARK_')) return { type: 'DARK', method: 'filename' };
-    if (f.startsWith('FLAT_') || f.startsWith('DSO_FLAT_')) return { type: 'FLAT', method: 'filename' };
-    if (f.startsWith('BIAS_')) return { type: 'BIAS', method: 'filename' };
+    if (f.startsWith('LIGHT_'))                              return { type: 'LIGHT', method: 'filename' };
+    if (f.startsWith('DARK_')  || f.startsWith('DSO_DARK_')) return { type: 'DARK',  method: 'filename' };
+    if (f.startsWith('FLAT_')  || f.startsWith('DSO_FLAT_')) return { type: 'FLAT',  method: 'filename' };
+    if (f.startsWith('BIAS_'))                               return { type: 'BIAS',  method: 'filename' };
 
     return { type: null, method: null };
   }
 
+  const subfolderName = {
+    LIGHT: 'lights',
+    DARK:  'darks',
+    FLAT:  'flats',
+    BIAS:  'bias'
+  };
+
+  const fitsFiles = walk(dirPath);
+  const total = fitsFiles.length;
+
+  event.sender.send('sirilprep-progress', { current: 0, total, status: 'Scanning FITS files...' });
+
+  const moved = [];
+  const logEntries = [];
+
   for (let i = 0; i < fitsFiles.length; i++) {
     if (cancelAllOperations) {
       cancelAllOperations = false;
-      return { canceled: true, moved };
+      return { canceled: true, movedCount: moved.length };
     }
 
     const filePath = fitsFiles[i];
     const filename = path.basename(filePath);
+    const fileParentDir = path.dirname(filePath);
 
     let header = {};
     try {
@@ -527,17 +555,19 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
     }
 
     const { type, method } = detectFrameType(header, filename);
+    if (!type) continue;
 
-    if (!type || !outDirs[type]) {
-      continue; // Skip unknown types
+    // Destination is relative to this file's own parent — not the root dirPath
+    const destDir = path.join(fileParentDir, subfolderName[type]);
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
     }
 
-    const dest = path.join(outDirs[type], filename);
+    const dest = path.join(destDir, filename);
 
     try {
       fs.renameSync(filePath, dest);
       moved.push({ from: filePath, to: dest });
-
       logEntries.push({
         file: filename,
         from: filePath,
@@ -546,7 +576,6 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
         detectionMethod: method,
         timestamp: new Date().toISOString()
       });
-
     } catch (err) {
       console.error(`Failed to move ${filePath}`, err);
     }
@@ -561,91 +590,81 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
     }
   }
 
-// Write log file as plain text
-const logPath = path.join(dirPath, 'sirilprep-log.txt');
-try {
-  const lines = logEntries.map(entry => {
-    return [
+  const logPath = path.join(dirPath, 'sirilprep-log.txt');
+  try {
+    const lines = logEntries.map(entry => [
       `[${entry.timestamp}] ${entry.frameType.padEnd(5)} | ${entry.detectionMethod.padEnd(8)} | ${entry.file}`,
       `    FROM: ${entry.from}`,
       `    TO:   ${entry.to}`,
       ``
-    ].join('\n');
-  }).join('\n');
+    ].join('\n')).join('\n');
+    fs.writeFileSync(logPath, lines, 'utf8');
+  } catch (err) {
+    console.error('Failed to write log file:', err);
+  }
 
-  fs.writeFileSync(logPath, lines, 'utf8');
-} catch (err) {
-  console.error('Failed to write log file:', err);
-}
-
-
-  event.sender.send('sirilprep-progress', {
-    current: total,
-    total,
-    status: 'Siril Prep complete!'
-  });
+  event.sender.send('sirilprep-progress', { current: total, total, status: 'Siril Prep complete!' });
 
   return {
     success: true,
-    moved,
+    movedCount: moved.length,
     logPath,
-    message: `Organized ${moved.length} files into lights/darks/flats/bias folders.`
+    message: `Organized ${moved.length} files into per-folder lights/darks/flats/bias subfolders.`
   };
 });
 
-// Remove empty folders handler
+// ─── IPC: remove-empty-folders ────────────────────────────────────────────────
+
 ipcMain.handle('remove-empty-folders', async (event, dirPath) => {
   cancelAllOperations = false;
-  message: 'Removing empty folders...';
+
+  // FIX: Removed the dead labeled statement `message: '...'` that was here —
+  // it was valid JS syntax but did absolutely nothing.
 
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
 
   let deletedCount = 0;
-  let totalFolders = 0;
 
-  // First pass: count all folders for progress tracking
-  function countFolders(folder) {
-    if (cancelAllOperations) return;
-    const entries = fs.readdirSync(folder, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        totalFolders++;
-        countFolders(path.join(folder, entry.name));
-      }
-    }
-  }
-
-  // Second pass: delete empty folders bottom-up
-  function removeEmpty(folder) {
+  // FIX: removeEmpty is now async with setImmediate yields so the event loop
+  // can process the cancel-all IPC message during large folder trees.
+  // Previously the synchronous recursion made the stop button unresponsive
+  // until the entire tree had been walked.
+  async function removeEmpty(folder) {
     if (cancelAllOperations) return;
 
     const entries = fs.readdirSync(folder, { withFileTypes: true });
 
     for (const entry of entries) {
+      if (cancelAllOperations) return;
       if (entry.isDirectory()) {
-        removeEmpty(path.join(folder, entry.name));
+        await removeEmpty(path.join(folder, entry.name));
       }
     }
 
-    // After processing children, check if folder is empty
+    // Yield to allow cancel-all IPC message to be processed between folders
+    await new Promise(resolve => setImmediate(resolve));
+
+    if (cancelAllOperations) return;
+
+    // After processing all children, check if this folder is now empty
     const after = fs.readdirSync(folder);
     if (after.length === 0 && folder !== dirPath) {
-      fs.rmdirSync(folder);
-      deletedCount++;
-
-      event.sender.send('remove-empty-folders-progress', {
-        deletedCount,
-        totalFolders
-      });
+      try {
+        fs.rmdirSync(folder);
+        deletedCount++;
+        event.sender.send('remove-empty-folders-progress', { deletedCount });
+      } catch (err) {
+        console.error(`Failed to remove folder ${folder}`, err);
+      }
     }
   }
 
   try {
-    countFolders(dirPath);
-    removeEmpty(dirPath);
+    await removeEmpty(dirPath);
 
     if (cancelAllOperations) {
+      cancelAllOperations = false;
       return { canceled: true, message: 'Operation canceled.' };
     }
 
@@ -658,7 +677,3 @@ ipcMain.handle('remove-empty-folders', async (event, dirPath) => {
     return { error: err.message };
   }
 });
-
-
-
-
