@@ -2,10 +2,6 @@ const selectBtn = document.getElementById('selectDir');
 const scanBtn = document.getElementById('scanBtn');
 const stopBtn = document.getElementById('stopBtn');
 const organizeBtn = document.getElementById('organizeBtn');
-const removejpgBtn = document.getElementById('removejpgBtn');
-const sirilprepBtn = document.getElementById('sirilprepBtn');
-const removeemptyBtn = document.getElementById('removeemptyBtn');
-
 const pathDisp = document.getElementById('selectedPath');
 const status = document.getElementById('status');
 const progressContainer = document.getElementById('progressContainer');
@@ -34,9 +30,9 @@ scanBtn.addEventListener('click', async () => {
     return;
   }
 
+  // Clear previous results
   summaryArea.innerHTML = '';
   detailsArea.innerHTML = '';
-  document.getElementById('catalogBreakdown').innerHTML = '';
 
   status.textContent = 'Scanning FITS files... This may take a while for large directories.';
   progressContainer.style.display = 'block';
@@ -70,19 +66,15 @@ scanBtn.addEventListener('click', async () => {
 
   status.textContent = `Found ${result.metadataList.length} FITS files.`;
 
-  summaryArea.innerHTML = createTableHTML(result.targetSummary, [
-    'Target', 'FITS Count', 'Files With Exposure', 'Total Integration Time'
-  ]);
-
-  detailsArea.innerHTML = createTableHTML(result.metadataList, [
+  
+summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Total Integration Time']);
+renderCatalogBreakdown(result.targetSummary);
+detailsArea.innerHTML = createTableHTML(result.metadataList, [
     'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
     'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
     'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
     'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software'
   ]);
-
-  // RESTORED: Catalog Breakdown Rendering
-  renderCatalogBreakdown(result.targetSummary);
 
   organizeBtn.disabled = false;
   removejpgBtn.disabled = false;
@@ -90,6 +82,7 @@ scanBtn.addEventListener('click', async () => {
   removeemptyBtn.disabled = false;
 });
 
+// Stops current task
 stopBtn.addEventListener('click', async () => {
   await window.electronAPI.cancelAll();
   status.textContent = 'Cancel requested; waiting for operation to stop...';
@@ -105,7 +98,7 @@ organizeBtn.addEventListener('click', async () => {
 
   progressContainer.style.display = 'block';
   progressBar.value = 0;
-  progressText.textContent = "Beginning to move Stacked files into Stacked_ directory...";
+  progressText.textContent = "Beginning to move Stacked files...";
   stopBtn.disabled = false;
 
   const result = await window.electronAPI.organizeStacked(selectedDirectory);
@@ -134,15 +127,24 @@ document.getElementById('removejpgBtn').addEventListener('click', async () => {
     return;
   }
 
+  // Show progress bar
   progressContainer.style.display = 'block';
   progressBar.value = 0;
-  progressText.textContent = "Starting JPG removal...";
+  progressText.textContent = "Starting JPG removal... This may take a while..";
   stopBtn.disabled = false;
 
+  // Listen for progress events
   window.electronAPI.onRemoveProgress((event, data) => {
     progressBar.value = (data.current / data.total) * 100;
     progressText.textContent = data.status;
   });
+
+  window.electronAPI.onOrganizeProgress((event, data) => {
+  progressContainer.style.display = 'block';
+  progressBar.value = (data.current / data.total) * 100;
+  progressText.textContent = data.status;
+});
+
 
   const result = await window.electronAPI.removeJpg(selectedDirectory);
 
@@ -158,7 +160,7 @@ document.getElementById('removejpgBtn').addEventListener('click', async () => {
     alert(`JPG removal canceled. Deleted ${result.deletedCount} files.`);
     return;
   }
-
+progressText.textContent = `Deleted ${result.deletedCount} JPG/JPEG files.`;
   alert(`Deleted ${result.deletedCount} JPG/JPEG files.`);
 });
 
@@ -171,7 +173,7 @@ document.getElementById('sirilprepBtn').addEventListener('click', async () => {
 
   progressContainer.style.display = 'block';
   progressBar.value = 0;
-  progressText.textContent = "Moving Light files into lights subdirectory...";
+  progressText.textContent = "Moving files into subdirectories...";
   stopBtn.disabled = false;
 
   window.electronAPI.onSirilprepProgress((event, data) => {
@@ -198,9 +200,10 @@ document.getElementById('sirilprepBtn').addEventListener('click', async () => {
   status.textContent = result.message;
 });
 
-// Remove empty folders progress listener
+// Register progress listener ONCE
 window.electronAPI.onRemoveEmptyFoldersProgress((event, data) => {
   const { deletedCount, totalFolders } = data;
+
   progressBar.max = totalFolders;
   progressBar.value = deletedCount;
   progressText.textContent = `Removed ${deletedCount} of ${totalFolders} empty folders...`;
@@ -236,7 +239,7 @@ document.getElementById('removeemptyBtn').addEventListener('click', async () => 
   status.textContent = result.message;
 });
 
-// Table builder
+
 function createTableHTML(data, columns) {
   if (!data || data.length === 0) return '<p>No data to show.</p>';
   const th = columns.map((c) => `<th>${c}</th>`).join('');
@@ -247,7 +250,7 @@ function createTableHTML(data, columns) {
   return `<table><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// Catalog Breakdown Renderer (restored)
+// Creates Catalog Summary
 function renderCatalogBreakdown(summaryGroups) {
   const catalogDiv = document.getElementById("catalogBreakdown");
   if (!catalogDiv) return;
@@ -270,6 +273,7 @@ function renderCatalogBreakdown(summaryGroups) {
   summaryGroups.forEach(group => {
     let name = (group.Target || "").toUpperCase().trim();
 
+    // Remove mosaic descriptors
     name = name
       .replace(/MOSAIC/g, "")
       .replace(/PANEL/g, "")
@@ -277,6 +281,7 @@ function renderCatalogBreakdown(summaryGroups) {
       .replace(/\s+/g, " ")
       .trim();
 
+    // Catalog detection
     if (name.startsWith("M ")) catalogCounts.Messier++;
     else if (name.startsWith("NGC")) catalogCounts.NGC++;
     else if (name.startsWith("IC")) catalogCounts.IC++;
@@ -306,3 +311,8 @@ function renderCatalogBreakdown(summaryGroups) {
 
   catalogDiv.innerHTML = html;
 }
+
+
+
+
+
