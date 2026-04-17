@@ -112,26 +112,36 @@ function formatHMS(totalSeconds) {
 }
  
 // ─── Walk ─────────────────────────────────────────────────────────────────────
- 
-// FIX: walkDirectory now returns { filePath, header } pairs so scan-fits can
-// reuse the header already parsed here instead of reading each file twice.
-// FIX: SKIP_DIR_NAMES now includes lights/darks/flats/bias so sirilprep
-// output folders are also excluded from scans.
-function walkDirectory(dir, filelist = []) {
-  const files = fs.readdirSync(dir);
-  for (const file of files) {
-    const fullPath = path.join(dir, file);
-    const stats = fs.statSync(fullPath);
- 
-    if (stats.isDirectory()) {
-      if (SCAN_SKIP_DIRS.has(file.toLowerCase())) continue;
-      walkDirectory(fullPath, filelist);
+
+// Async generator that yields { filePath, header } one file at a time.
+// Replaces the old synchronous walkDirectory — the event loop is never blocked
+// for more than one file so the progress bar starts moving immediately and the
+// Stop button stays responsive throughout the entire walk.
+async function* walkDirectoryGen(dir) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    console.warn('Cannot read directory:', dir, err.message);
+    return;
+  }
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (!SCAN_SKIP_DIRS.has(entry.name.toLowerCase())) {
+        yield* walkDirectoryGen(path.join(dir, entry.name));
+      }
       continue;
     }
- 
-    if (!/\.fit$|\.fits$/i.test(file)) continue;
- 
-    // Parse header once here — reused by scan-fits to avoid double I/O
+
+    if (!/\.fit$|\.fits$/i.test(entry.name)) continue;
+
+    const fullPath = path.join(dir, entry.name);
+
+    // Yield to the event loop between every file so IPC messages (progress,
+    // cancel) are processed without waiting for the whole walk to finish.
+    await new Promise(resolve => setImmediate(resolve));
+
     let header = null;
     let isStacked = false;
     try {
@@ -140,20 +150,17 @@ function walkDirectory(dir, filelist = []) {
     } catch (err) {
       // Header unreadable — fall through to filename check
     }
- 
-    // Filename fallback
+
     if (!isStacked) {
-      isStacked = file.startsWith('Stacked_') || file.startsWith('DSO_Stacked_');
+      isStacked = entry.name.startsWith('Stacked_') || entry.name.startsWith('DSO_Stacked_');
     }
- 
-    if (isStacked) continue;
- 
-    filelist.push({ filePath: fullPath, header });
+
+    if (!isStacked) {
+      yield { filePath: fullPath, header };
+    }
   }
- 
-  return filelist;
 }
- 
+
 // ─── State ────────────────────────────────────────────────────────────────────
  
 let cancelAllOperations = false;
@@ -177,37 +184,36 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
   cancelAllOperations = false;
   if (!dirPath) return { error: 'No directory path provided.' };
   if (!fs.existsSync(dirPath)) return { error: 'Directory not found.' };
- 
-  // FIX: walkDirectory now returns { filePath, header } — header already parsed,
-  // no second parseFitsHeader call needed per file.
-  const fitFiles = walkDirectory(dirPath);
+
   const metadataList = [];
-  const totalFiles = fitFiles.length;
- 
-  event.sender.send('scan-progress', { current: 0, total: totalFiles, status: 'Starting scan...' });
- 
-  for (let i = 0; i < fitFiles.length; i++) {
+  let fileCount = 0;
+
+  // Send an early progress ping so the UI shows activity immediately.
+  // Total is unknown until the walk completes, so we stream progress as we go.
+  event.sender.send('scan-progress', { current: 0, total: 0, status: 'Scanning files...' });
+
+  for await (const { filePath, header: cachedHeader } of walkDirectoryGen(dirPath)) {
     if (cancelAllOperations) {
       cancelAllOperations = false;
       return { canceled: true, metadataList, targetSummary: [] };
     }
- 
-    const { filePath, header: cachedHeader } = fitFiles[i];
- 
-    if (i % 10 === 0) {
-      await new Promise(resolve => setImmediate(resolve));
+
+    fileCount++;
+
+    // Progress update every 10 files. The generator already yields between files
+    // so no extra setImmediate is needed here.
+    if (fileCount % 10 === 0) {
       event.sender.send('scan-progress', {
-        current: i,
-        total: totalFiles,
-        status: `Processing ${i}/${totalFiles} files...`
+        current: fileCount,
+        total: fileCount, // total unknown during streaming walk; bar fills progressively
+        status: `Processing file ${fileCount}...`
       });
     }
- 
+
     try {
-      // Reuse the header from walkDirectory — avoids reading each file twice
       const header = cachedHeader || parseFitsHeader(filePath);
       const filename = path.basename(filePath);
- 
+
       let finalTarget = 'Unknown';
       const filenameMatch = filename.match(/^Light_(.+?)_\d+\.\d+s_/);
       if (filenameMatch) {
@@ -215,16 +221,14 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
       } else {
         finalTarget = anyField(header, ['OBJECT', 'TARGET', 'TITLE'], 'Unknown');
       }
- 
+
       const exposureTime = Number(anyField(header, ['EXPTIME', 'EXPOSURE', 'EXPOSURE_TIME'], 0));
       const numSubs = Number(anyField(header, ['STACKCNT', 'NFRAMES', 'NSTACK', 'FRAMES'], 1));
- 
-      // FIX: totalExposure fallback was previously always eagerly evaluated inside
-      // anyField(). Now computed only when TOTALEXP is absent.
+
       const totalExposure = header['TOTALEXP'] !== undefined
         ? Number(header['TOTALEXP'])
         : (numSubs && exposureTime ? numSubs * exposureTime : 0);
- 
+
       const startTime = anyField(header, ['DATE-OBS', 'DATEOBS', 'DATE_OBS', 'DATE'], 'Unknown');
       let convertedStart = 'Unknown';
       let convertedEnd = 'Unknown';
@@ -235,11 +239,11 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
           convertedEnd = dt.add(totalExposure, 'second').format('YYYY-MM-DD HH:mm:ss');
         }
       } catch (err) { }
- 
+
       const cameraModel = anyField(header, ['CREATOR', 'INSTRUME', 'CAMERA', 'CAM'], 'Unknown');
       const telescope = anyField(header, ['TELESCOP', 'TELESCOPE'], 'Unknown');
       const telescopeDisplay = telescope === 'Unknown' ? cameraModel : telescope;
- 
+
       metadataList.push({
         File: filename,
         Path: filePath,
@@ -251,7 +255,6 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
         'Total Exposure Time s': totalExposure,
         Telescope: telescopeDisplay,
         'Camera Model': cameraModel,
-        // FIX: Removed duplicate 'CCD-TEMP' key — was listed twice, second entry unreachable
         'Sensor Temperature C': anyField(header, ['CCD-TEMP', 'CCD_TEMP'], 'Unknown'),
         RA: anyField(header, ['RA'], 'Unknown'),
         DEC: anyField(header, ['DEC'], 'Unknown'),
@@ -270,9 +273,9 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
       console.error('Failed to parse FITS', filePath, err);
     }
   }
- 
-  event.sender.send('scan-progress', { current: totalFiles, total: totalFiles, status: 'Aggregating data...' });
- 
+
+  event.sender.send('scan-progress', { current: fileCount, total: fileCount, status: 'Aggregating data...' });
+
   const targets = {};
   metadataList.forEach((entry) => {
     const name = entry.Target || 'Unknown';
@@ -283,19 +286,19 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
       targets[name].availableCount += 1;
     }
   });
- 
+
   const targetSummary = Object.values(targets).map((v) => ({
     Target: v.Target,
     'FITS Count': v.files,
     'Files With Exposure': v.availableCount,
     'Total Integration Time': formatHMS(v.totalExposure)
   }));
- 
-  event.sender.send('scan-progress', { current: totalFiles, total: totalFiles, status: 'Complete!' });
- 
+
+  event.sender.send('scan-progress', { current: fileCount, total: fileCount, status: 'Complete!' });
+
   return { metadataList, targetSummary };
 });
- 
+
 // ─── IPC: organize-stacked ────────────────────────────────────────────────────
 ipcMain.handle('organize-stacked', async (event, dirPath) => {
   cancelAllOperations = false;

@@ -42,7 +42,14 @@ scanBtn.addEventListener('click', async () => {
   stopBtn.disabled = false;
 
   window.electronAPI.onScanProgress((event, progress) => {
-    progressBar.value = (progress.current / progress.total) * 100;
+    // During streaming walk total is unknown; show file count in status.
+    // When total===current at end, progress.total > 0 and bar snaps to full.
+    if (progress.total > 0) {
+      progressBar.value = 100;
+      progressBar.max = 100;
+    } else {
+      progressBar.removeAttribute('value'); // indeterminate while streaming
+    }
     progressText.textContent = progress.status;
   });
 
