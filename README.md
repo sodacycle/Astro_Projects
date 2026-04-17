@@ -6,7 +6,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 ### Core Functionality
 - **Recursive Directory Scanning**: Searches through selected directory and all subdirectories for FITS files
-- **Smart File Filtering**: Automatically excludes files (`Stacked_`, `DSO_Stacked_` & subfolders such as `/Stacked/` & `process`)
+- **Smart File Filtering**: Automatically excludes files (`Stacked_`, `DSO_Stacked_` & subfolders such as `Stacked` & `process`)
 - **Custom FITS Parser**: Built-in header parser supporting both `.fit` and `.fits` extensions
 - **Target Extraction**: Intelligently extracts target names from filenames or FITS headers
 - **Metadata Aggregation**: Groups files by astronomical target and calculates total integration time
@@ -36,8 +36,8 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
   - **Catalog Table**: Application automatically identifies which astronomical catalogs your collected targets belong to.
   - **Details Table**: Individual file metadata
 - **Responsive Design**: Clean, readable tables with proper column headers
-- **Siril Prep Workflow**: A dedicated button that automatically organizes frames (lights, darks, etc) into Siril‑compatible subdirectories with progress tracking
-- **Remove Empty Folders**: A dedicated button that will parse subfolders and remove empty folder left behind once 'Organize Stacked Files' has been used
+- **Siril Prep Workflow**: A dedicated button that automatically organizes frames (`lights`, `darks`, etc) into Siril‑compatible subdirectories with progress tracking
+- **Remove Empty Folders**: A dedicated button that will parse subfolders and remove empty folder left behind once `Organize Stacked Files` has been used
 
 
 ### Cross-Platform Support
@@ -172,10 +172,10 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 4. **View Results**:
    - **Summary Table**: Shows aggregated data per astronomical target
-   - **Catalog Breakdown**: Shows Catalog Objects based on `Summary Table` with classifications for `Messier`|`NGC`|`IC`|`Caldwell`|`Sharpless`|`Barnard`|`Other`
+   - **Catalog Breakdown**: Shows Cataloged Object count based on `Summary Table` with classifications for `Messier`|`NGC`|`IC`|`Caldwell`|`Sharpless`|`Barnard`| etc. falling back to `Other` if metadata is missing
    - **Details Table**: Shows individual file metadata
 
-### Advanced Tools UI - **NEW**
+### Advanced Tools UI 
  - Hides/Shows the following items
 
 1. **Organize Stacked Files**:
@@ -286,13 +286,13 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - Check for port conflicts (default Electron port)
 
 **No FITS Files Found**
-- Verify files have .fit or .fits extensions
+- Verify files have `.fit` or `.fits` extensions
 - Check file permissions
 - Ensure directory path is accessible
 
 **Metadata Shows Unknown**
 - FITS files may use non-standard header fields
-- Seestar S30 uses CREATOR field for camera model
+- Seestar S30 uses `CREATOR` field for camera model
 - Target names extracted from filenames when `OBJECT` field missing
 
 **Scan Takes Too Long**
