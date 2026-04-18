@@ -44,8 +44,10 @@ const STACKING_SOFTWARE = [
 // Single source of truth used by walkDirectory, findStackedFiles, and sirilprep walk.
 //const SKIP_DIR_NAMES = new Set(['stacked', 'process', 'lights', 'darks', 'flats', 'bias']);
  
-// Directories skipped during FITS scanning
-const SCAN_SKIP_DIRS = new Set(['stacked', 'process', 'darks', 'flats', 'bias']);
+// Directories skipped during FITS scanning.
+// darks/flats/bias are NOT in this set — the scanner walks them to collect
+// calibration frame metadata. Only already-processed output dirs are skipped.
+const SCAN_SKIP_DIRS = new Set(['stacked', 'process']);
  
 // Directories skipped during file organization
 const PROCESS_SKIP_DIRS = new Set(['stacked', 'process', 'darks', 'flats', 'bias', 'lights']);
@@ -110,6 +112,37 @@ function formatHMS(totalSeconds) {
   const s = `${seconds}s`;
   return `${h}${m}${s}`.trim();
 }
+
+// ─── Frame-type detection ─────────────────────────────────────────────────────
+// Shared by walkDirectoryGen (scan) and sirilprep (file organisation).
+// Returns { frameType: 'LIGHT'|'DARK'|'FLAT'|'BIAS'|'UNKNOWN', method: string }
+// Priority: FITS metadata → strict filename prefix → substring word match.
+function detectFrameType(header, filename) {
+  // Stage 1: FITS metadata
+  const imgtyp = anyField(header, ['IMAGETYP', 'IMTYPE', 'FRAME', 'TYPE'], '').toUpperCase();
+  if (imgtyp.includes('LIGHT')) return { frameType: 'LIGHT', method: 'metadata' };
+  if (imgtyp.includes('DARK'))  return { frameType: 'DARK',  method: 'metadata' };
+  if (imgtyp.includes('FLAT'))  return { frameType: 'FLAT',  method: 'metadata' };
+  if (imgtyp.includes('BIAS'))  return { frameType: 'BIAS',  method: 'metadata' };
+
+  // Stage 2: strict filename prefix (NINA / SGP / DSO style)
+  const f = filename.toUpperCase();
+  if (f.startsWith('LIGHT_'))                               return { frameType: 'LIGHT', method: 'filename-prefix' };
+  if (f.startsWith('DARK_')  || f.startsWith('DSO_DARK_')) return { frameType: 'DARK',  method: 'filename-prefix' };
+  if (f.startsWith('FLAT_')  || f.startsWith('DSO_FLAT_')) return { frameType: 'FLAT',  method: 'filename-prefix' };
+  if (f.startsWith('BIAS_'))                                return { frameType: 'BIAS',  method: 'filename-prefix' };
+
+  // Stage 3: substring word match (DWARF 3 and similar cameras)
+  const stem = f.replace(/\.FITS?$/, '').replace(/[^A-Z]+/g, ' ').trim();
+  const hasWord = (w) => new RegExp('\\b' + w + '\\b').test(stem);
+  if (hasWord('LIGHT') || hasWord('LIGHTS')) return { frameType: 'LIGHT', method: 'filename-substring' };
+  if (hasWord('DARK')  || hasWord('DARKS'))  return { frameType: 'DARK',  method: 'filename-substring' };
+  if (hasWord('FLAT')  || hasWord('FLATS'))  return { frameType: 'FLAT',  method: 'filename-substring' };
+  if (hasWord('BIAS')  || hasWord('BIASES')) return { frameType: 'BIAS',  method: 'filename-substring' };
+
+  return { frameType: 'LIGHT', method: 'assumed' }; // default assumption for unclassified files
+}
+
  
 // ─── Walk ─────────────────────────────────────────────────────────────────────
 
@@ -126,9 +159,15 @@ async function* walkDirectoryGen(dir) {
     return;
   }
 
+  // Dirs we never descend into during scanning.
+  // darks/flats/bias are skipped to avoid double-counting files already
+  // organised by Siril Prep. lights dirs ARE walked — lights organised by
+  // Siril Prep still belong in the scan. stacked/process are output dirs.
+  const SCAN_SKIP = new Set(['stacked', 'process', 'darks', 'flats', 'bias']);
+
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      if (!SCAN_SKIP_DIRS.has(entry.name.toLowerCase())) {
+      if (!SCAN_SKIP.has(entry.name.toLowerCase())) {
         yield* walkDirectoryGen(path.join(dir, entry.name));
       }
       continue;
@@ -148,7 +187,7 @@ async function* walkDirectoryGen(dir) {
       header = parseFitsHeader(fullPath);
       isStacked = metadataIndicatesStacking(header);
     } catch (err) {
-      // Header unreadable — fall through to filename check
+      // Header unreadable — fall through to filename/stacked check
     }
 
     if (!isStacked) {
@@ -156,7 +195,8 @@ async function* walkDirectoryGen(dir) {
     }
 
     if (!isStacked) {
-      yield { filePath: fullPath, header };
+      const { frameType, method } = detectFrameType(header || {}, entry.name);
+      yield { filePath: fullPath, header, frameType, frameTypeMethod: method };
     }
   }
 }
@@ -188,24 +228,19 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
   const metadataList = [];
   let fileCount = 0;
 
-  // Send an early progress ping so the UI shows activity immediately.
-  // Total is unknown until the walk completes, so we stream progress as we go.
   event.sender.send('scan-progress', { current: 0, total: 0, status: 'Scanning files...' });
 
-  for await (const { filePath, header: cachedHeader } of walkDirectoryGen(dirPath)) {
+  for await (const { filePath, header: cachedHeader, frameType } of walkDirectoryGen(dirPath)) {
     if (cancelAllOperations) {
       cancelAllOperations = false;
-      return { canceled: true, metadataList, targetSummary: [] };
+      return { canceled: true, metadataList, targetSummary: [], calibrationSummary: [] };
     }
 
     fileCount++;
-
-    // Progress update every 10 files. The generator already yields between files
-    // so no extra setImmediate is needed here.
     if (fileCount % 10 === 0) {
       event.sender.send('scan-progress', {
         current: fileCount,
-        total: fileCount, // total unknown during streaming walk; bar fills progressively
+        total: fileCount,
         status: `Processing file ${fileCount}...`
       });
     }
@@ -214,6 +249,7 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
       const header = cachedHeader || parseFitsHeader(filePath);
       const filename = path.basename(filePath);
 
+      // Target name — extracted from filename pattern or FITS header
       let finalTarget = 'Unknown';
       const filenameMatch = filename.match(/^Light_(.+?)_\d+\.\d+s_/);
       if (filenameMatch) {
@@ -223,28 +259,28 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
       }
 
       const exposureTime = Number(anyField(header, ['EXPTIME', 'EXPOSURE', 'EXPOSURE_TIME'], 0));
-      const numSubs = Number(anyField(header, ['STACKCNT', 'NFRAMES', 'NSTACK', 'FRAMES'], 1));
-
+      const numSubs     = Number(anyField(header, ['STACKCNT', 'NFRAMES', 'NSTACK', 'FRAMES'], 1));
       const totalExposure = header['TOTALEXP'] !== undefined
         ? Number(header['TOTALEXP'])
         : (numSubs && exposureTime ? numSubs * exposureTime : 0);
 
       const startTime = anyField(header, ['DATE-OBS', 'DATEOBS', 'DATE_OBS', 'DATE'], 'Unknown');
       let convertedStart = 'Unknown';
-      let convertedEnd = 'Unknown';
+      let convertedEnd   = 'Unknown';
       try {
         const dt = dayjs(startTime);
         if (dt.isValid()) {
           convertedStart = dt.format('YYYY-MM-DD HH:mm:ss');
-          convertedEnd = dt.add(totalExposure, 'second').format('YYYY-MM-DD HH:mm:ss');
+          convertedEnd   = dt.add(totalExposure, 'second').format('YYYY-MM-DD HH:mm:ss');
         }
       } catch (err) { }
 
-      const cameraModel = anyField(header, ['CREATOR', 'INSTRUME', 'CAMERA', 'CAM'], 'Unknown');
-      const telescope = anyField(header, ['TELESCOP', 'TELESCOPE'], 'Unknown');
+      const cameraModel      = anyField(header, ['CREATOR', 'INSTRUME', 'CAMERA', 'CAM'], 'Unknown');
+      const telescope        = anyField(header, ['TELESCOP', 'TELESCOPE'], 'Unknown');
       const telescopeDisplay = telescope === 'Unknown' ? cameraModel : telescope;
 
       metadataList.push({
+        'Frame Type': frameType,
         File: filename,
         Path: filePath,
         Target: finalTarget,
@@ -276,27 +312,74 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
 
   event.sender.send('scan-progress', { current: fileCount, total: fileCount, status: 'Aggregating data...' });
 
+  // ── Target summary (light frames only) ────────────────────────────────────
   const targets = {};
-  metadataList.forEach((entry) => {
-    const name = entry.Target || 'Unknown';
-    if (!targets[name]) targets[name] = { Target: name, files: 0, totalExposure: 0, availableCount: 0 };
-    targets[name].files += 1;
-    if (!Number.isNaN(entry['Total Exposure Time s']) && entry['Total Exposure Time s'] > 0) {
-      targets[name].totalExposure += entry['Total Exposure Time s'];
-      targets[name].availableCount += 1;
-    }
-  });
+  metadataList
+    .filter(e => e['Frame Type'] === 'LIGHT')
+    .forEach(entry => {
+      const name = entry.Target || 'Unknown';
+      if (!targets[name]) targets[name] = { Target: name, files: 0, totalExposure: 0, availableCount: 0 };
+      targets[name].files++;
+      if (!Number.isNaN(entry['Total Exposure Time s']) && entry['Total Exposure Time s'] > 0) {
+        targets[name].totalExposure  += entry['Total Exposure Time s'];
+        targets[name].availableCount++;
+      }
+    });
 
-  const targetSummary = Object.values(targets).map((v) => ({
+  const targetSummary = Object.values(targets).map(v => ({
     Target: v.Target,
     'FITS Count': v.files,
     'Files With Exposure': v.availableCount,
     'Total Integration Time': formatHMS(v.totalExposure)
   }));
 
+  // ── Calibration summary (dark / flat / bias) ──────────────────────────────
+  // Group by frame-type + exposure + gain + binning + sensor-temp.
+  // Within each group keep only the most recent DATE-OBS so the user can
+  // see at a glance how fresh their calibration library is.
+  const CAL_TYPES = new Set(['DARK', 'FLAT', 'BIAS']);
+  const calGroups = {};
+
+  metadataList
+    .filter(e => CAL_TYPES.has(e['Frame Type']))
+    .forEach(entry => {
+      const key = [
+        entry['Frame Type'],
+        entry['Exposure Time s'],
+        entry['Gain'],
+        entry['Binning'],
+        entry['Sensor Temperature C']
+      ].join('|');
+
+      if (!calGroups[key]) {
+        calGroups[key] = {
+          'Frame Type':       entry['Frame Type'],
+          'Exposure Time s':  entry['Exposure Time s'],
+          Gain:               entry['Gain'],
+          Binning:            entry['Binning'],
+          'Sensor Temp C':    entry['Sensor Temperature C'],
+          Count:              0,
+          _latestDate:        ''
+        };
+      }
+
+      calGroups[key].Count++;
+
+      // Track most recent capture date for this group
+      const d = entry['Start Time UTC'];
+      if (d && d !== 'Unknown' && d > calGroups[key]._latestDate) {
+        calGroups[key]._latestDate = d;
+      }
+    });
+
+  const TYPE_ORDER = { DARK: 0, FLAT: 1, BIAS: 2 };
+  const calibrationSummary = Object.values(calGroups)
+    .sort((a, b) => (TYPE_ORDER[a['Frame Type']] ?? 9) - (TYPE_ORDER[b['Frame Type']] ?? 9))
+    .map(({ _latestDate, ...rest }) => ({ ...rest, 'Most Recent': _latestDate || 'Unknown' }));
+
   event.sender.send('scan-progress', { current: fileCount, total: fileCount, status: 'Complete!' });
 
-  return { metadataList, targetSummary };
+  return { metadataList, targetSummary, calibrationSummary };
 });
 
 // ─── IPC: organize-stacked ────────────────────────────────────────────────────
@@ -502,34 +585,12 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
     return list;
   }
  
-  function detectFrameType(header, filename) {
-    // Metadata first
-    const type = anyField(header, ['IMAGETYP', 'IMTYPE', 'FRAME', 'TYPE'], '').toUpperCase();
-    if (type.includes('LIGHT')) return { type: 'LIGHT', method: 'metadata' };
-    if (type.includes('DARK'))  return { type: 'DARK',  method: 'metadata' };
-    if (type.includes('FLAT'))  return { type: 'FLAT',  method: 'metadata' };
-    if (type.includes('BIAS'))  return { type: 'BIAS',  method: 'metadata' };
- 
-    // Filename fallback — Stage 1: strict prefix matching (e.g. NINA/SGP style)
-    const f = filename.toUpperCase();
-    if (f.startsWith('LIGHT_'))                               return { type: 'LIGHT', method: 'filename' };
-    if (f.startsWith('DARK_')  || f.startsWith('DSO_DARK_')) return { type: 'DARK',  method: 'filename' };
-    if (f.startsWith('FLAT_')  || f.startsWith('DSO_FLAT_')) return { type: 'FLAT',  method: 'filename' };
-    if (f.startsWith('BIAS_'))                                return { type: 'BIAS',  method: 'filename' };
- 
-    // Filename fallback — Stage 2: substring matching for cameras like DWARF 3
-    // that embed the frame type as a word anywhere in the filename.
-    // Normalize: strip extension, uppercase, replace every non-alpha char
-    // (underscores, digits, spaces, parens, hyphens) with a space so \b
-    // word boundaries work reliably on all naming styles.
-    const stem = f.replace(/\.FITS?$/, '').replace(/[^A-Z]+/g, ' ').trim();
-    const hasWord = (word) => new RegExp("\\b" + word + "\\b").test(stem);
-    if (hasWord('LIGHT') || hasWord('LIGHTS'))  return { type: 'LIGHT', method: 'filename-substring' };
-    if (hasWord('DARK')  || hasWord('DARKS'))   return { type: 'DARK',  method: 'filename-substring' };
-    if (hasWord('FLAT')  || hasWord('FLATS'))   return { type: 'FLAT',  method: 'filename-substring' };
-    if (hasWord('BIAS')  || hasWord('BIASES'))  return { type: 'BIAS',  method: 'filename-substring' };
- 
-    return { type: null, method: null };
+  // Delegate to shared top-level detectFrameType; map to { type, method } shape
+  // that the sirilprep move loop expects. Truly unclassifiable files return null.
+  function detectFrameTypeLocal(header, filename) {
+    const { frameType, method } = detectFrameType(header, filename);
+    if (frameType === 'LIGHT' && method === 'assumed') return { type: null, method: null };
+    return { type: frameType, method };
   }
  
   const subfolderName = {
@@ -564,7 +625,7 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
       console.warn('Failed to read FITS header:', filePath);
     }
  
-    const { type, method } = detectFrameType(header, filename);
+    const { type, method } = detectFrameTypeLocal(header, filename);
     if (!type) continue;
  
     // Destination is relative to this file's own parent — not the root dirPath
