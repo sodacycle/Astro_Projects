@@ -76,8 +76,9 @@ scanBtn.addEventListener('click', async () => {
   
 summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Total Integration Time']);
 renderCatalogBreakdown(result.targetSummary);
+renderCalibrationSummary(result.calibrationSummary);
 detailsArea.innerHTML = createTableHTML(result.metadataList, [
-    'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
+    'Frame Type', 'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
     'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
     'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
     'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software'
@@ -255,6 +256,19 @@ function createTableHTML(data, columns) {
     return `<tr>${cells}</tr>`;
   }).join('');
   return `<table><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// Creates Calibration Frame Summary (darks, flats, bias)
+function renderCalibrationSummary(rows) {
+  const div = document.getElementById('calibrationSummary');
+  if (!div) return;
+  if (!rows || rows.length === 0) {
+    div.innerHTML = '<p>No calibration frames found.</p>';
+    return;
+  }
+  div.innerHTML = createTableHTML(rows, [
+    'Frame Type', 'Exposure Time s', 'Gain', 'Binning', 'Sensor Temp C', 'Count', 'Most Recent'
+  ]);
 }
 
 // Creates Catalog Summary
