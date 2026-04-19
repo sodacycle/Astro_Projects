@@ -4,114 +4,153 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FITS Metadata Viewer</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 16px; color: #000003de; background: #e0e0e0;}
-    button { margin-right: 8px; padding: 8px 14px; }
-    #status { margin: 10px 0; color: #444; }
+<style>
+    :root {
+      --bg: #0a1929;
+      --card-bg: #132f4c;
+      --text: #ffffff;
+      --text-muted: #b2bac2;
+      --primary: #0d6efd;
+      --primary-hover: #0b5ed7;
+      --border: #265d97;
+      --shadow: 0 2px 8px rgba(0,0,0,0.3);
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 16px;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    h1, h2, h3 { margin-top: 0; font-weight: 600; }
+    h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+    h2 { font-size: 1.25rem; margin-bottom: 0.75rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    button {
+      margin-right: 8px;
+      margin-bottom: 8px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 6px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:hover:not(:disabled) { background: var(--primary-hover); }
+    button:active:not(:disabled) { transform: scale(0.98); }
+    button.secondary { background: #6c757d; }
+    button.secondary:hover:not(:disabled) { background: #5a6268; }
+    button.danger { background: #dc3545; }
+    button.danger:hover:not(:disabled) { background: #bb2d3b; }
+    button:disabled, #organizeBtn:disabled, #sirilprepBtn:disabled { background: #adb5bd; cursor: not-allowed; }
+    #status { margin: 10px 0; color: var(--text-muted); }
     table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-    th, td { padding: 8px 10px; border: 1px solid #bbbbbb; text-align: left; font-size: 0.9rem; }
-    th { background: #9cc8f1; font-weight: bold; position: sticky; top: 0; z-index: 10; }
-    #summary, #details { margin-top: 10px; overflow-x: auto; max-height: 500px; overflow-y: auto; border: 1px solid #ccc; }
-
-/* Advanced Tools — no layout gap when closed */
-#advancedBox {
-  max-width: 600px;
-  overflow: hidden;
-
-  /* Remove layout footprint when closed */
-  height: 0;
-  padding: 0;
-  border: 0;
-  margin-top: 0;
-
-  background: #d4d4d4;
-  border-radius: 6px;
-
-  transform-origin: top;
-  transform: scaleY(0);
-  opacity: 0;
-
-  transition:
-    transform 0.25s ease,
-    opacity 0.25s ease,
-    height 0s linear 0.25s,
-    padding 0s linear 0.25s,
-    border-width 0s linear 0.25s,
-    margin-top 0s linear 0.25s;
-}
-
-#advancedBox.open {
-  /* Restore natural layout footprint */
-  height: auto;
-  padding: 12px;
-  border: 2px solid #888;
-  margin-top: 16px;
-
-  transform: scaleY(1);
-  opacity: 1;
-
-  transition:
-    transform 0.25s ease,
-    opacity 0.25s ease;
-}
-
+    th, td { padding: 10px 12px; border: 1px solid var(--border); text-align: left; font-size: 0.9rem; }
+    th { background: #1a3a5c; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+    tr:nth-child(even) { background: #1a3a5c; }
+    tr:hover { background: #1f497a; }
+    #summary, #details { margin-top: 10px; overflow-x: auto; max-height: 500px; overflow-y: auto; }
+    #selectedPath { margin-top: 10px; color: var(--text-muted); font-size: 0.9rem; }
+    #progressContainer { margin: 10px 0; display: none; }
+    #progressBar { width: 100%; height: 8px; border-radius: 4px; }
+    progress::-webkit-progress-bar { background: #1a3a5c; border-radius: 4px; }
+    progress::-webkit-progress-value { background: var(--primary); border-radius: 4px; }
+    #progressText { margin-top: 5px; font-size: 0.85rem; }
+    #advancedBox {
+      max-width: 600px;
+      overflow: hidden;
+      height: 0;
+      padding: 0;
+      border: 0;
+      margin-top: 0;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      transform-origin: top;
+      transform: scaleY(0);
+      opacity: 0;
+      transition:
+        transform 0.25s ease,
+        opacity 0.25s ease,
+        height 0s linear 0.25s,
+        padding 0s linear 0.25s,
+        border-width 0s linear 0.25s,
+        margin-top 0s linear 0.25s;
+    }
+    #advancedBox.open {
+      height: auto;
+      padding: 16px;
+      border: 1px solid var(--border);
+      margin-top: 16px;
+      transform: scaleY(1);
+      opacity: 1;
+      transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
+    }
+    #toggleAdvanced { background: #6c757d; }
   </style>
 </head>
 <body>
-  <h1>FITS Metadata Viewer</h1>
-  <p>Select a directory with .fit files; subdirectories are automatically scanned.</p>
+  <div class="card">
+    <h1>FITS Metadata Viewer</h1>
+    <p style="color: var(--text-muted);">Select a directory with .fit files; subdirectories are automatically scanned.</p>
 
-  <button id="selectDir" title="Select a directory to scan and process.">Select Directory</button>
-  <button id="scanBtn" title="Start scanning the selected directory for FITS files.">Scan FIT</button>
-  <button id="stopBtn" title="Cancels the currently running operation."  disabled>Stop</button>
+    <div style="margin-bottom: 12px;">
+      <button id="selectDir" title="Select a directory to scan and process.">Select Directory</button>
+      <button id="scanBtn" title="Start scanning the selected directory for FITS files.">Scan FIT</button>
+      <button id="stopBtn" title="Cancels the currently running operation." disabled>Stop</button>
+      <button id="toggleAdvanced" title="Show/Hide Advanced Options" class="secondary">Advanced Tools</button>
+    </div>
 
-  <!--  Toggle Button -->
-  <button id="toggleAdvanced" title="Show/Hide Advanced Options" style="margin-top:16px;">
-    Show Advanced Tools
-  </button>
+    <div id="advancedBox">
+      <h3 style="margin-top:0;">Advanced Features</h3>
+      <div style="margin-bottom: 12px;">
+        <button id="organizeBtn" title="Organize the scanned Stacked/DSO_Stacked FITS files into a /Stacked_ directory." disabled>Organize Stacked Files</button>
+        <button id="removejpgBtn" title="Remove all jpg & jpeg files from the selected directory in an effort to save disk space. Must be used with caution." disabled class="danger">Remove .jpg Files</button>
+        <button id="sirilprepBtn" title="Moves files into a subdirectory within Object folders based on light, dark, flat, or bias." disabled>Siril Prep</button>
+        <button id="removeemptyBtn" title="Remove empty folders from the selected directory." disabled class="danger">Remove Empty Folders</button>
+      </div>
+    </div>
 
-  <!--  Hidden Advanced Tools Box -->
-  <div id="advancedBox">
-    <h3 style="margin-top:0;">Advanced Features</h3>
+    <div id="selectedPath"></div>
+    <div id="status"></div>
 
-    <button id="organizeBtn" title="Organize the scanned Stacked/DSO_Stacked FITS files into a /Stacked_ directory." disabled>Organize Stacked Files</button>
-    <button id="removejpgBtn" title="Remove all jpg & jpeg files from the selected directory in an effort to save disk space. Must be used with caution." disabled>Remove .jpg Files</button>
-    <button id="sirilprepBtn" title="Moves files into a subdirectory within Object folders based on light, dark, flat, or bias." disabled>Siril Prep</button>
-    <button id="removeemptyBtn" title="Remove empty folders from the selected directory." disabled>Remove Empty Folders</button>
+    <div id="progressContainer">
+      <progress id="progressBar" value="0" max="100"></progress>
+      <div id="progressText"></div>
+    </div>
   </div>
 
-  <div id="selectedPath" style="margin-top:10px;"></div>
-  <div id="status"></div>
-
-  <div id="progressContainer" style="margin:10px 0; display:none;">
-    <progress id="progressBar" value="0" max="100" style="width:100%; height:20px;"></progress>
-    <div id="progressText" style="margin-top:5px;"></div>
+  <div class="card">
+    <h2>Target Summary</h2>
+    <div id="summary"></div>
   </div>
 
-  <h2>Target Summary</h2>
-  <div id="summary"></div>
+  <div class="card">
+    <h2>Catalog Breakdown</h2>
+    <div id="catalogBreakdown"></div>
+  </div>
 
-  <!-- Catalog Summary -->
-  <h2>Catalog Breakdown</h2>
-  <div id="catalogBreakdown" style="
-    margin-top: 10px;
-    overflow-x: auto;
-    max-height: 500px;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-  "></div>
+  <div class="card">
+    <h2>Calibration Frames</h2>
+    <div id="calibrationSummary"></div>
+  </div>
 
-  <h2>Calibration Frames</h2>
-  <div id="calibrationSummary" style="
-    margin-top: 10px;
-    overflow-x: auto;
-    max-height: 400px;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-  "></div>
-
-  <h2>File-Level Details</h2>
-  <div id="details"></div>
+  <div class="card">
+    <h2>File-Level Details</h2>
+    <div id="details"></div>
+  </div>
 
   <!--  Toggle Script -->
   <script>

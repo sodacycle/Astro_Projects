@@ -2,6 +2,9 @@ const selectBtn = document.getElementById('selectDir');
 const scanBtn = document.getElementById('scanBtn');
 const stopBtn = document.getElementById('stopBtn');
 const organizeBtn = document.getElementById('organizeBtn');
+const removejpgBtn = document.getElementById('removejpgBtn');
+const sirilprepBtn = document.getElementById('sirilprepBtn');
+const removeemptyBtn = document.getElementById('removeemptyBtn');
 const pathDisp = document.getElementById('selectedPath');
 const status = document.getElementById('status');
 const progressContainer = document.getElementById('progressContainer');
@@ -129,7 +132,7 @@ organizeBtn.addEventListener('click', async () => {
 });
 
 // Remove JPG handler
-document.getElementById('removejpgBtn').addEventListener('click', async () => {
+removejpgBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
     alert("Please select a directory first.");
     return;
@@ -173,7 +176,7 @@ progressText.textContent = `Deleted ${result.deletedCount} JPG/JPEG files.`;
 });
 
 // Prep for Siril handler
-document.getElementById('sirilprepBtn').addEventListener('click', async () => {
+sirilprepBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
     status.textContent = 'Please select a directory first.';
     return;
@@ -210,15 +213,13 @@ document.getElementById('sirilprepBtn').addEventListener('click', async () => {
 
 // Register progress listener ONCE
 window.electronAPI.onRemoveEmptyFoldersProgress((event, data) => {
-  const { deletedCount, totalFolders } = data;
-
-  progressBar.max = totalFolders;
+  const { deletedCount } = data;
   progressBar.value = deletedCount;
-  progressText.textContent = `Removed ${deletedCount} of ${totalFolders} empty folders...`;
+  progressText.textContent = `Removed ${deletedCount} empty folders...`;
 });
 
 // Remove empty folders handler
-document.getElementById('removeemptyBtn').addEventListener('click', async () => {
+removeemptyBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
     status.textContent = 'Please select a directory first.';
     return;
