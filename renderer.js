@@ -80,6 +80,7 @@ scanBtn.addEventListener('click', async () => {
 summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Total Integration Time']);
 renderCatalogBreakdown(result.targetSummary);
 renderCalibrationSummary(result.calibrationSummary);
+renderImagingCalendar(result.metadataList);
 detailsArea.innerHTML = createTableHTML(result.metadataList, [
     'Frame Type', 'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
     'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
@@ -332,6 +333,101 @@ function renderCatalogBreakdown(summaryGroups) {
   html += "</tbody></table>";
 
   catalogDiv.innerHTML = html;
+}
+
+let imagingData = [];
+let currentCalendarMonth = new Date().getMonth();
+let currentCalendarYear = new Date().getFullYear();
+let calendarListenersAdded = false;
+
+function renderImagingCalendar(metadataList) {
+  currentCalendarMonth = new Date().getMonth();
+  currentCalendarYear = new Date().getFullYear();
+  imagingData = [];
+  metadataList.forEach(item => {
+    if (item['Start Time UTC'] && item['Start Time UTC'] !== 'Unknown' && item['Target']) {
+      const datePart = item['Start Time UTC'].split(' ')[0];
+      const target = item['Target'];
+      const totalExp = Number(item['Total Exposure Time s'] || 0);
+      if (datePart && totalExp > 0) {
+        imagingData.push({ date: datePart, target, totalExp });
+      }
+    }
+  });
+
+  const calendarGrid = document.getElementById('calendar');
+  if (!calendarGrid) return;
+
+  if (!calendarListenersAdded) {
+    document.getElementById('prevMonth').addEventListener('click', () => {
+      currentCalendarMonth--;
+      if (currentCalendarMonth < 0) { currentCalendarMonth = 11; currentCalendarYear--; }
+      renderCalendar();
+    });
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      currentCalendarMonth++;
+      if (currentCalendarMonth > 11) { currentCalendarMonth = 0; currentCalendarYear++; }
+      renderCalendar();
+    });
+    calendarListenersAdded = true;
+  }
+
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const year = currentCalendarYear;
+  const month = currentCalendarMonth;
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  document.getElementById('monthYear').textContent = `${monthNames[month]} ${year}`;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  const sessionsByDate = {};
+  imagingData.forEach(item => {
+    const itemDate = new Date(item.date);
+    if (itemDate.getFullYear() === year && itemDate.getMonth() === month) {
+      const key = itemDate.toISOString().split('T')[0];
+      if (!sessionsByDate[key]) sessionsByDate[key] = {};
+      const targetKey = item.target;
+      if (!sessionsByDate[key][targetKey]) sessionsByDate[key][targetKey] = 0;
+      sessionsByDate[key][targetKey] += item.totalExp;
+    }
+  });
+
+  let html = '';
+  ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(d => {
+    html += `<div class="day-header">${d}</div>`;
+  });
+
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const day = daysInPrevMonth - i;
+    html += `<div class="day other-month"><div class="day-number">${day}</div></div>`;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const sessions = sessionsByDate[dateStr] || {};
+    let sessionHtml = '';
+    Object.entries(sessions).forEach(([target, totalSec]) => {
+      const mins = Math.round(totalSec / 60);
+      sessionHtml += `<div class="session">${target} - ${mins}min</div>`;
+    });
+    html += `<div class="day"><div class="day-number">${day}</div>${sessionHtml}</div>`;
+  }
+
+  const totalCells = firstDay + daysInMonth;
+  const remaining = 7 - (totalCells % 7);
+  if (remaining < 7) {
+    for (let i = 1; i <= remaining; i++) {
+      html += `<div class="day other-month"><div class="day-number">${i}</div></div>`;
+    }
+  }
+
+  document.getElementById('calendar').innerHTML = html;
 }
 
 
