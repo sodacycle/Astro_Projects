@@ -30,18 +30,18 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 ### User Interface
 - **Progress Tracking**: Real-time progress bar with file count updates
-- **Calibration Frames Summary**: Displays a table showing counts of `darks`, `flats`, and `bias` frames with `exposure times`, `gain`, `binning`, `sensor temperature`, and `most recent date`
 - **Cancelable Scans**: Stop button to abort long-running scans
 - **Table Display**:
   - **Summary Table**: Target-level aggregation (file count, summed exposure time)
   - **Catalog Table**: Application automatically identifies which astronomical catalogs your collected targets belong to; clicking a catalog filters the calendar and details to show only that catalog type
+  - **Calibration Frames Summary**: Displays a table showing counts of `darks`, `flats`, and `bias` frames with `exposure times`, `gain`, `binning`, `sensor temperature`, and `most recent date`
   - **Details Table**: Individual file metadata
-- **Calendar View**: Visual calendar displaying imaging sessions by date
-  - **Moon Phases**: Each day shows the current moon phase emoji (🌑🌓🌕🌗)
-  - **Session Display**: Shows target name and integration time for each imaging session
-  - **Clickable Targets**: Clicking a target filters the details to show only files from that target on that specific date
-  - **Catalog Filtering**: Clicking a catalog in the Catalog Breakdown highlights days containing that catalog type and filters the details accordingly
-  - **Navigation**: `Previous`/`Next` month buttons to browse through dates
+  - **Calendar View**: Visual calendar displaying imaging sessions by date
+    - **Moon Phases**: Each day shows the current moon phase emoji (🌑🌓🌕🌗)
+    - **Session Display**: Shows target name and integration time for each imaging session
+    - **Clickable Targets**: Clicking a target filters the details to show only files from that target on that specific date
+    - **Catalog Filtering**: Clicking a catalog in the Catalog Breakdown highlights days containing that catalog type and filters the details accordingly
+    - **Navigation**: `Previous`/`Next` month buttons to browse through dates
 - **Show All Button**: Returns to displaying all scanned files after viewing filtered results
 - **Responsive Design**: Clean, readable tables with proper column headers
 - **Siril Prep Workflow**: A dedicated button that automatically organizes frames (`lights`, `darks`, etc) into Siril‑compatible subdirectories with progress tracking
