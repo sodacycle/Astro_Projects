@@ -33,8 +33,15 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Cancelable Scans**: Stop button to abort long-running scans
 - **Table Display**:
   - **Summary Table**: Target-level aggregation (file count, summed exposure time)
-  - **Catalog Table**: Application automatically identifies which astronomical catalogs your collected targets belong to.
+  - **Catalog Table**: Application automatically identifies which astronomical catalogs your collected targets belong to; clicking a catalog filters the calendar and details to show only that catalog type
   - **Details Table**: Individual file metadata
+- **Calendar View**: Visual calendar displaying imaging sessions by date
+  - **Moon Phases**: Each day shows the current moon phase emoji (🌑🌓🌕🌗)
+  - **Session Display**: Shows target name and integration time for each imaging session
+  - **Clickable Targets**: Clicking a target filters the details to show only files from that target on that specific date
+  - **Catalog Filtering**: Clicking a catalog in the Catalog Breakdown highlights days containing that catalog type and filters the details accordingly
+  - **Navigation**: Previous/Next month buttons to browse through dates
+- **Show All Button**: Returns to displaying all scanned files after viewing filtered results
 - **Responsive Design**: Clean, readable tables with proper column headers
 - **Siril Prep Workflow**: A dedicated button that automatically organizes frames (`lights`, `darks`, etc) into Siril‑compatible subdirectories with progress tracking
 - **Remove Empty Folders**: A dedicated button that will parse subfolders and remove empty folder left behind once `Organize Stacked Files` has been used
@@ -171,9 +178,19 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
    - Use Stop Scan to cancel if needed
 
 4. **View Results**:
-   - **Summary Table**: Shows aggregated data per astronomical target
-   - **Catalog Breakdown**: Shows Cataloged Object count based on `Summary Table` with classifications for `Messier`|`NGC`|`IC`|`Caldwell`|`Sharpless`|`Barnard`| etc. falling back to `Other` if metadata is missing
-   - **Details Table**: Shows individual file metadata
+    - **Summary Table**: Shows aggregated data per astronomical target
+    - **Catalog Breakdown**: Shows Cataloged Object count based on `Summary Table` with classifications for `Messier`|`NGC`|`IC`|`Caldwell`|`Sharpless`|`Barnard`| etc. falling back to `Other` if metadata is missing
+      - Clicking a catalog filters both the Calendar and Details to show only files from that catalog type
+      - The Calendar highlights days containing that catalog with a colored border
+    - **Details Table**: Shows individual file metadata
+    - **Show All Button**: Click to return to viewing all scanned files after using filtered views
+
+5. **Using the Calendar**:
+    - Browse months using the Previous/Next buttons
+    - Each day shows the moon phase emoji
+    - Days with imaging sessions display the target name and integration time
+    - Click on a specific target to see only files from that target on that date
+    - Use the Catalog Breakdown to filter by catalog type across all dates
 
 ### Advanced Tools UI 
  - Hides/Shows the following items
@@ -226,12 +243,13 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Total Integration Time**: Total exposure time across all files in `HH:MM:SS` Format
 
 #### Details Table Columns
+- **Frame Type**: Type of frame (Light, Dark, Flat, Bias)
 - **File**: Filename
 - **Target**: Astronomical target
 - **Start Time UTC / End Time UTC**: Observation start and calculated end times
 - **Exposure Time s**: Individual frame exposure time
 - **Number of Subs**: Number of sub-exposures stacked
-- **Total Exposure Time s**: Calculated total exposure (exposure � subs)
+- **Total Exposure Time s**: Calculated total exposure (exposure x subs)
 - **Telescope**: Telescope model (falls back to camera if not available)
 - **Camera Model**: Camera model
 - **Sensor Temperature C**: Camera sensor temperature
