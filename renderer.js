@@ -78,9 +78,11 @@ scanBtn.addEventListener('click', async () => {
 
   
 summaryArea.innerHTML = createTableHTML(result.targetSummary, ['Target', 'FITS Count', 'Files With Exposure', 'Total Integration Time']);
+targetSummary = result.targetSummary;
 renderCatalogBreakdown(result.targetSummary);
 renderCalibrationSummary(result.calibrationSummary);
 renderImagingCalendar(result.metadataList);
+fullMetadataList = result.metadataList;
 detailsArea.innerHTML = createTableHTML(result.metadataList, [
     'Frame Type', 'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
     'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
@@ -92,6 +94,25 @@ detailsArea.innerHTML = createTableHTML(result.metadataList, [
   removejpgBtn.disabled = false;
   sirilprepBtn.disabled = false;
   removeemptyBtn.disabled = false;
+  document.getElementById('showAllFiles').style.display = 'inline-block';
+});
+
+document.getElementById('showAllFiles').addEventListener('click', () => {
+  currentCatalogFilter = null;
+  renderCalendar();
+  detailsArea.innerHTML = '<p>Loading...</p>';
+  detailsArea.classList.add('loading');
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      detailsArea.classList.remove('loading');
+      detailsArea.innerHTML = createTableHTML(fullMetadataList, [
+          'Frame Type', 'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
+          'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
+          'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
+          'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software'
+        ]);
+      }, 0);
+    });
 });
 
 // Stops current task
@@ -252,12 +273,18 @@ removeemptyBtn.addEventListener('click', async () => {
 
 function createTableHTML(data, columns) {
   if (!data || data.length === 0) return '<p>No data to show.</p>';
+  const colCount = columns.length;
   const th = columns.map((c) => `<th>${c}</th>`).join('');
-  const rows = data.map((row) => {
-    const cells = columns.map((col) => `<td>${row[col] ?? ''}</td>`).join('');
-    return `<tr>${cells}</tr>`;
-  }).join('');
-  return `<table><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
+  let rowsHtml = '';
+  for (let i = 0, len = data.length; i < len; i++) {
+    const row = data[i];
+    let cells = '';
+    for (let j = 0; j < colCount; j++) {
+      cells += `<td>${row[columns[j]] ?? ''}</td>`;
+    }
+    rowsHtml += `<tr>${cells}</tr>`;
+  }
+  return `<table><thead><tr>${th}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
 }
 
 // Creates Calibration Frame Summary (darks, flats, bias)
@@ -323,7 +350,7 @@ function renderCatalogBreakdown(summaryGroups) {
 
   Object.entries(catalogCounts).forEach(([catalog, count]) => {
     html += `
-      <tr>
+      <tr class="catalog-row" data-catalog="${catalog}" style="cursor: pointer;">
         <td>${catalog}</td>
         <td>${count}</td>
       </tr>
@@ -333,16 +360,59 @@ function renderCatalogBreakdown(summaryGroups) {
   html += "</tbody></table>";
 
   catalogDiv.innerHTML = html;
+
+  document.querySelectorAll('.catalog-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const catalog = el.dataset.catalog;
+      currentCatalogFilter = catalog;
+      renderCalendar(true);
+      detailsArea.innerHTML = '<p>Loading...</p>';
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const filteredMetadata = fullMetadataList.filter(item => {
+            const name = (item['Target'] || "").toUpperCase().trim();
+            const cleanName = name.replace(/MOSAIC/g, "").replace(/PANEL/g, "").replace(/-/g, " ").replace(/\s+/g, " ").trim();
+            switch (catalog) {
+              case 'Messier': return cleanName.startsWith("M ");
+              case 'NGC': return cleanName.startsWith("NGC");
+              case 'IC': return cleanName.startsWith("IC");
+              case 'Caldwell': return cleanName.startsWith("CALDWELL");
+              case 'Sharpless': return cleanName.startsWith("SH") || cleanName.startsWith("SH2");
+              case 'Barnard': return cleanName.startsWith("BARNARD") || cleanName.startsWith("B ");
+              case 'LDN': return cleanName.startsWith("LDN");
+              case 'LBN': return cleanName.startsWith("LBN");
+              case 'Abell': return cleanName.startsWith("ABELL");
+              case 'PGC': return cleanName.startsWith("PGC");
+              case 'UGC': return cleanName.startsWith("UGC");
+              case 'Other': return !cleanName.startsWith("M ") && !cleanName.startsWith("NGC") && !cleanName.startsWith("IC") && !cleanName.startsWith("CALDWELL") && !cleanName.startsWith("SH") && !cleanName.startsWith("SH2") && !cleanName.startsWith("BARNARD") && !cleanName.startsWith("B ") && !cleanName.startsWith("LDN") && !cleanName.startsWith("LBN") && !cleanName.startsWith("ABELL") && !cleanName.startsWith("PGC") && !cleanName.startsWith("UGC");
+              default: return false;
+            }
+          });
+          detailsArea.innerHTML = createTableHTML(filteredMetadata, [
+            'Frame Type', 'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
+            'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
+            'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
+            'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software'
+          ]);
+        }, 0);
+      });
+    });
+  });
 }
 
 let imagingData = [];
 let currentCalendarMonth = new Date().getMonth();
 let currentCalendarYear = new Date().getFullYear();
 let calendarListenersAdded = false;
+let currentMetadataList = [];
+let fullMetadataList = [];
+let targetSummary = [];
+let currentCatalogFilter = null;
 
 function renderImagingCalendar(metadataList) {
   currentCalendarMonth = new Date().getMonth();
   currentCalendarYear = new Date().getFullYear();
+  currentMetadataList = metadataList;
   imagingData = [];
   metadataList.forEach(item => {
     if (item['Start Time UTC'] && item['Start Time UTC'] !== 'Unknown' && item['Target']) {
@@ -375,7 +445,18 @@ function renderImagingCalendar(metadataList) {
   renderCalendar();
 }
 
-function renderCalendar() {
+function getMoonPhase(date) {
+  const knownNewMoon = new Date('2000-01-06T18:14:00Z');
+  const lunarCycle = 29.53058867;
+  const diffDays = (date - knownNewMoon) / (1000 * 60 * 60 * 24);
+  const daysSinceNewMoon = diffDays % lunarCycle;
+  const normalized = daysSinceNewMoon < 0 ? daysSinceNewMoon + lunarCycle : daysSinceNewMoon;
+  const phase = Math.floor((normalized / lunarCycle) * 8) % 8;
+  const phases = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+  return phases[phase];
+}
+
+function renderCalendar(filtered = false) {
   const year = currentCalendarYear;
   const month = currentCalendarMonth;
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -386,11 +467,33 @@ function renderCalendar() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
 
+  const filteredImagingData = currentCatalogFilter ? imagingData.filter(item => {
+    const name = item.target.toUpperCase().trim();
+    const cleanName = name.replace(/MOSAIC/g, "").replace(/PANEL/g, "").replace(/-/g, " ").replace(/\s+/g, " ").trim();
+    switch (currentCatalogFilter) {
+      case 'Messier': return cleanName.startsWith("M ");
+      case 'NGC': return cleanName.startsWith("NGC");
+      case 'IC': return cleanName.startsWith("IC");
+      case 'Caldwell': return cleanName.startsWith("CALDWELL");
+      case 'Sharpless': return cleanName.startsWith("SH") || cleanName.startsWith("SH2");
+      case 'Barnard': return cleanName.startsWith("BARNARD") || cleanName.startsWith("B ");
+      case 'LDN': return cleanName.startsWith("LDN");
+      case 'LBN': return cleanName.startsWith("LBN");
+      case 'Abell': return cleanName.startsWith("ABELL");
+      case 'PGC': return cleanName.startsWith("PGC");
+      case 'UGC': return cleanName.startsWith("UGC");
+      case 'Other': return !cleanName.startsWith("M ") && !cleanName.startsWith("NGC") && !cleanName.startsWith("IC") && !cleanName.startsWith("CALDWELL") && !cleanName.startsWith("SH") && !cleanName.startsWith("SH2") && !cleanName.startsWith("BARNARD") && !cleanName.startsWith("B ") && !cleanName.startsWith("LDN") && !cleanName.startsWith("LBN") && !cleanName.startsWith("ABELL") && !cleanName.startsWith("PGC") && !cleanName.startsWith("UGC");
+      default: return true;
+    }
+  }) : imagingData;
+
+  const hasFilteredDates = new Set();
   const sessionsByDate = {};
-  imagingData.forEach(item => {
+  filteredImagingData.forEach(item => {
     const itemDate = new Date(item.date);
     if (itemDate.getFullYear() === year && itemDate.getMonth() === month) {
       const key = itemDate.toISOString().split('T')[0];
+      hasFilteredDates.add(key);
       if (!sessionsByDate[key]) sessionsByDate[key] = {};
       const targetKey = item.target;
       if (!sessionsByDate[key][targetKey]) sessionsByDate[key][targetKey] = 0;
@@ -405,7 +508,9 @@ function renderCalendar() {
 
   for (let i = firstDay - 1; i >= 0; i--) {
     const day = daysInPrevMonth - i;
-    html += `<div class="day other-month"><div class="day-number">${day}</div></div>`;
+    const prevMonthDate = new Date(year, month, day);
+    const moonPhase = getMoonPhase(prevMonthDate);
+    html += `<div class="day other-month"><div class="day-number">${day} ${moonPhase}</div></div>`;
   }
 
   for (let day = 1; day <= daysInMonth; day++) {
@@ -414,20 +519,47 @@ function renderCalendar() {
     let sessionHtml = '';
     Object.entries(sessions).forEach(([target, totalSec]) => {
       const mins = Math.round(totalSec / 60);
-      sessionHtml += `<div class="session">${target} - ${mins}min</div>`;
+      sessionHtml += `<div class="session" data-target="${target}" data-date="${dateStr}">${target} - ${mins}min</div>`;
     });
-    html += `<div class="day"><div class="day-number">${day}</div>${sessionHtml}</div>`;
+    const dayClass = hasFilteredDates.has(dateStr) ? 'day has-filtered' : 'day';
+    const moonPhase = getMoonPhase(new Date(dateStr));
+    html += `<div class="${dayClass}"><div class="day-number">${day} ${moonPhase}</div>${sessionHtml}</div>`;
   }
 
   const totalCells = firstDay + daysInMonth;
   const remaining = 7 - (totalCells % 7);
   if (remaining < 7) {
     for (let i = 1; i <= remaining; i++) {
-      html += `<div class="day other-month"><div class="day-number">${i}</div></div>`;
+      const nextMonthDate = new Date(year, month + 1, i);
+      const moonPhase = getMoonPhase(nextMonthDate);
+      html += `<div class="day other-month"><div class="day-number">${i} ${moonPhase}</div></div>`;
     }
   }
 
   document.getElementById('calendar').innerHTML = html;
+
+  document.querySelectorAll('.session').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = e.target.dataset.target;
+      const date = e.target.dataset.date;
+      detailsArea.innerHTML = '<p>Loading...</p>';
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const targetItems = currentMetadataList.filter(item => {
+            const itemDate = item['Start Time UTC']?.split(' ')[0];
+            return item['Target'] === target && itemDate === date;
+          });
+          detailsArea.innerHTML = createTableHTML(targetItems, [
+            'Frame Type', 'File', 'Target', 'Start Time UTC', 'End Time UTC', 'Exposure Time s', 'Number of Subs', 'Total Exposure Time s',
+            'Telescope', 'Camera Model', 'Sensor Temperature C', 'RA', 'DEC',
+            'Latitude', 'Longitude', 'Binning', 'Filter Used', 'Gain',
+            'Focal Length mm', 'Aperture mm', 'Focus Position', 'Image Type', 'Stacking Software'
+          ]);
+        }, 0);
+      });
+    });
+  });
 }
 
 
