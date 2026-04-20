@@ -12,11 +12,11 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 - **Metadata Aggregation**: Groups files by astronomical target and calculates total integration time
 
 ### Extracted Metadata Fields
-- **Observation Details**: Start/End times, exposure time, number of subs, total exposure
+- **Observation Details**: `Start`/`End` times, `exposure time`, `number of subs`, `total exposure`
 - **Telescope & Camera**: Model information with fallback logic for various FITS formats
-- **Imaging Parameters**: Binning, filter used, gain, focal length, aperture, focus position
-- **Location Data**: Latitude, longitude, sensor temperature
-- **File Information**: Image type, stacking software, raw header JSON
+- **Imaging Parameters**: `Binning`, `filter used`, `gain`, `focal length`, `aperture`, `focus position`
+- **Location Data**: `Latitude`, `longitude`, `sensor temperature`
+- **File Information**: `Image type`, `stacking software`, raw header JSON
 
 #### Siril Preparation
 - Recursively scans the selected directory and all subdirectories
@@ -30,6 +30,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
 
 ### User Interface
 - **Progress Tracking**: Real-time progress bar with file count updates
+- **Calibration Frames Summary**: Displays a table showing counts of `darks`, `flats`, and `bias` frames with `exposure times`, `gain`, `binning`, `sensor temperature`, and `most recent date`
 - **Cancelable Scans**: Stop button to abort long-running scans
 - **Table Display**:
   - **Summary Table**: Target-level aggregation (file count, summed exposure time)
@@ -40,7 +41,7 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
   - **Session Display**: Shows target name and integration time for each imaging session
   - **Clickable Targets**: Clicking a target filters the details to show only files from that target on that specific date
   - **Catalog Filtering**: Clicking a catalog in the Catalog Breakdown highlights days containing that catalog type and filters the details accordingly
-  - **Navigation**: Previous/Next month buttons to browse through dates
+  - **Navigation**: `Previous`/`Next` month buttons to browse through dates
 - **Show All Button**: Returns to displaying all scanned files after viewing filtered results
 - **Responsive Design**: Clean, readable tables with proper column headers
 - **Siril Prep Workflow**: A dedicated button that automatically organizes frames (`lights`, `darks`, etc) into Siril‑compatible subdirectories with progress tracking
