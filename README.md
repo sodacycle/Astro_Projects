@@ -38,6 +38,13 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
   - **Details Table**: Individual file metadata
   - **Calendar View**: Visual calendar displaying imaging sessions by date
     - **Moon Phases**: Each day shows the current moon phase emoji (🌑🌓🌕🌗)
+    - **Weather Data**: Weather information displayed beside moon phase using observation site location from FITS metadata
+      - **Location**: Automatically extracts latitude/longitude from FITS headers (SITELAT, SITELONG)
+      - **Weather Source**: Open-Meteo API (free, no API key required)
+      - **Display Format**: Day# MoonPhase|WeatherEmoji (🌡Temp|Humidity%)
+      - **Night Conditions**: Weather shows nighttime (8PM-6AM) temperature and average cloud cover
+      - **Toggle**: °C/°F temperature unit toggle beside calendar title
+      - **Past & Future**: Displays historical weather for past dates and forecast for future dates
     - **Session Display**: Shows target name and integration time for each imaging session
     - **Clickable Targets**: Clicking a target filters the details to show only files from that target on that specific date
     - **Catalog Filtering**: Clicking a catalog in the Catalog Breakdown highlights days containing that catalog type and filters the details accordingly
@@ -187,11 +194,14 @@ A cross-platform desktop application for scanning and analyzing FITS (Flexible I
     - **Show All Button**: Click to return to viewing all scanned files after using filtered views
 
 5. **Using the Calendar**:
-    - Browse months using the Previous/Next buttons
-    - Each day shows the moon phase emoji
-    - Days with imaging sessions display the target name and integration time
-    - Click on a specific target to see only files from that target on that date
-    - Use the Catalog Breakdown to filter by catalog type across all dates
+     - Browse months using the Previous/Next buttons
+     - Each day shows the moon phase emoji
+     - Days with imaging sessions display: `Day# MoonPhase|WeatherEmoji (🌡Temp|Humidity%)`
+       - Example: `23 🌕|⛅ (🌡45°F|°65%)`
+       - Weather data is fetched automatically using the observation site location from FITS headers
+       - Use the °C/°F toggle beside the calendar title to switch temperature units
+     - Click on a specific target to see only files from that target on that date
+     - Use the Catalog Breakdown to filter by catalog type across all dates
 
 ### Advanced Tools UI 
  - Hides/Shows the following items
