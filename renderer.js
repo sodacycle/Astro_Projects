@@ -408,8 +408,159 @@ let currentMetadataList = [];
 let fullMetadataList = [];
 let targetSummary = [];
 let currentCatalogFilter = null;
+let siteLocation = null;
+let weatherCache = {};
+let useCelsius = localStorage.getItem('use_celsius') === 'true';
 
-function renderImagingCalendar(metadataList) {
+function toggleTempUnit() {
+  useCelsius = !useCelsius;
+  localStorage.setItem('use_celsius', useCelsius);
+  const btn = document.getElementById('tempToggle');
+  if (btn) btn.textContent = useCelsius ? '°F' : '°C';
+  renderCalendar();
+}
+
+function initTempToggle() {
+  const btn = document.getElementById('tempToggle');
+  if (btn) {
+    btn.textContent = useCelsius ? '°F' : '°C';
+    btn.addEventListener('click', toggleTempUnit);
+  }
+}
+
+async function fetchSiteLocation(metadataList) {
+  for (const item of metadataList) {
+    const lat = item['Latitude'];
+    const lon = item['Longitude'];
+    if (lat && lon && lat !== 'Unknown' && lon !== 'Unknown') {
+      const latNum = parseFloat(lat);
+      const lonNum = parseFloat(lon);
+      if (!isNaN(latNum) && !isNaN(lonNum)) {
+        siteLocation = { lat: latNum, lon: lonNum };
+        return;
+      }
+    }
+  }
+}
+
+async function fetchWeatherForecast() {
+  if (!siteLocation) {
+    const cached = localStorage.getItem('astro_site_location');
+    if (cached) {
+      siteLocation = JSON.parse(cached);
+    }
+  }
+  if (!siteLocation) return;
+  const { lat, lon } = siteLocation;
+  localStorage.setItem('astro_site_location', JSON.stringify({ lat, lon }));
+  
+  weatherCache = {};
+  
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1);
+  const startOfMonth = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-01`;
+  
+  try {
+    if (startOfMonth < todayStr) {
+      const historyUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&hourly=cloud_cover,relative_humidity_2m,temperature_2m&daily=weather_code&start_date=${startOfMonth}&end_date=${todayStr}&timezone=auto`;
+      const res = await fetch(historyUrl);
+      const data = await res.json();
+      if (data.daily && data.daily.time) {
+        for (let i = 0; i < data.daily.time.length; i++) {
+          const date = data.daily.time[i];
+          const code = data.daily.weather_code[i];
+          weatherCache[date] = { code, avgCloud: 0, avgHumidity: 0, nightTemp: null };
+        }
+      }
+      if (data.hourly && data.hourly.time) {
+        const clouds = data.hourly.cloud_cover;
+        const humidity = data.hourly.relative_humidity_2m || [];
+        const temps = data.hourly.temperature_2m || [];
+        const dailyClouds = {};
+        const dailyHumidity = {};
+        const nightlyTemps = {};
+        data.hourly.time.forEach((t, i) => {
+          const hour = parseInt(t.split('T')[1].split(':')[0]);
+          const day = t.split('T')[0];
+          if (hour >= 20 || hour < 6) {
+            if (!nightlyTemps[day]) nightlyTemps[day] = [];
+            if (temps[i] !== undefined) nightlyTemps[day].push(temps[i]);
+          }
+          if (!dailyClouds[day]) { dailyClouds[day] = []; dailyHumidity[day] = []; }
+          if (clouds[i] !== undefined) dailyClouds[day].push(clouds[i]);
+          if (humidity[i] !== undefined) dailyHumidity[day].push(humidity[i]);
+        });
+        Object.keys(dailyClouds).forEach(day => {
+          if (weatherCache[day]) {
+            if (dailyClouds[day].length) weatherCache[day].avgCloud = dailyClouds[day].reduce((a, b) => a + b, 0) / dailyClouds[day].length;
+            if (dailyHumidity[day].length) weatherCache[day].avgHumidity = dailyHumidity[day].reduce((a, b) => a + b, 0) / dailyHumidity[day].length;
+            if (nightlyTemps[day] && nightlyTemps[day].length) {
+              weatherCache[day].nightTemp = nightlyTemps[day].reduce((a, b) => a + b, 0) / nightlyTemps[day].length;
+            }
+          }
+        });
+      }
+    }
+    
+    const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=cloud_cover,relative_humidity_2m,temperature_2m&daily=weather_code&start_date=${startDate}&timezone=auto&forecast_days=16`;
+    const res2 = await fetch(forecastUrl);
+    const data2 = await res2.json();
+    if (data2.daily && data2.daily.time) {
+      for (let i = 0; i < data2.daily.time.length; i++) {
+        const date = data2.daily.time[i];
+        const code = data2.daily.weather_code[i];
+        weatherCache[date] = { code, avgCloud: 0, avgHumidity: 0, nightTemp: null };
+      }
+    }
+    if (data2.hourly && data2.hourly.time) {
+      const clouds = data2.hourly.cloud_cover;
+      const humidity = data2.hourly.relative_humidity_2m || [];
+      const temps = data2.hourly.temperature_2m || [];
+      const dailyClouds = {};
+      const dailyHumidity = {};
+      const nightlyTemps = {};
+      data2.hourly.time.forEach((t, i) => {
+        const hour = parseInt(t.split('T')[1].split(':')[0]);
+        const day = t.split('T')[0];
+        if (hour >= 20 || hour < 6) {
+          if (!nightlyTemps[day]) nightlyTemps[day] = [];
+          if (temps[i] !== undefined) nightlyTemps[day].push(temps[i]);
+        }
+        if (!dailyClouds[day]) { dailyClouds[day] = []; dailyHumidity[day] = []; }
+        if (clouds[i] !== undefined) dailyClouds[day].push(clouds[i]);
+        if (humidity[i] !== undefined) dailyHumidity[day].push(humidity[i]);
+      });
+      Object.keys(dailyClouds).forEach(day => {
+        if (weatherCache[day]) {
+          if (dailyClouds[day].length) weatherCache[day].avgCloud = dailyClouds[day].reduce((a, b) => a + b, 0) / dailyClouds[day].length;
+          if (dailyHumidity[day].length) weatherCache[day].avgHumidity = dailyHumidity[day].reduce((a, b) => a + b, 0) / dailyHumidity[day].length;
+          if (nightlyTemps[day] && nightlyTemps[day].length) {
+            weatherCache[day].nightTemp = nightlyTemps[day].reduce((a, b) => a + b, 0) / nightlyTemps[day].length;
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.error('Weather fetch failed:', e);
+  }
+}
+
+function getWeatherEmoji(code, avgCloud) {
+  if (avgCloud < 20) return '☀️';
+  if (avgCloud < 50) return '⛅';
+  if (avgCloud < 80) return '☁️';
+  if (code >= 95) return '⛈️';
+  if (code >= 80) return '🌧️';
+  if (code >= 71) return '🌨️';
+  if (code >= 61) return '🌧️';
+  if (code >= 51) return '🌨️';
+  if (code >= 45) return '🌫️';
+  return '☁️';
+}
+
+async function renderImagingCalendar(metadataList) {
   currentCalendarMonth = new Date().getMonth();
   currentCalendarYear = new Date().getFullYear();
   currentMetadataList = metadataList;
@@ -425,18 +576,24 @@ function renderImagingCalendar(metadataList) {
     }
   });
 
+  await fetchSiteLocation(metadataList);
+  await fetchWeatherForecast();
+  initTempToggle();
+
   const calendarGrid = document.getElementById('calendar');
   if (!calendarGrid) return;
 
   if (!calendarListenersAdded) {
-    document.getElementById('prevMonth').addEventListener('click', () => {
+    document.getElementById('prevMonth').addEventListener('click', async () => {
       currentCalendarMonth--;
       if (currentCalendarMonth < 0) { currentCalendarMonth = 11; currentCalendarYear--; }
+      await fetchWeatherForecast();
       renderCalendar();
     });
-    document.getElementById('nextMonth').addEventListener('click', () => {
+    document.getElementById('nextMonth').addEventListener('click', async () => {
       currentCalendarMonth++;
       if (currentCalendarMonth > 11) { currentCalendarMonth = 0; currentCalendarYear++; }
+      await fetchWeatherForecast();
       renderCalendar();
     });
     calendarListenersAdded = true;
@@ -492,7 +649,7 @@ function renderCalendar(filtered = false) {
   filteredImagingData.forEach(item => {
     const itemDate = new Date(item.date);
     if (itemDate.getFullYear() === year && itemDate.getMonth() === month) {
-      const key = itemDate.toISOString().split('T')[0];
+      const key = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}-${String(itemDate.getDate()).padStart(2, '0')}`;
       hasFilteredDates.add(key);
       if (!sessionsByDate[key]) sessionsByDate[key] = {};
       const targetKey = item.target;
@@ -523,7 +680,29 @@ function renderCalendar(filtered = false) {
     });
     const dayClass = hasFilteredDates.has(dateStr) ? 'day has-filtered' : 'day';
     const moonPhase = getMoonPhase(new Date(dateStr));
-    html += `<div class="${dayClass}"><div class="day-number">${day} ${moonPhase}</div>${sessionHtml}</div>`;
+    const hasSession = hasFilteredDates.has(dateStr);
+    const weatherInfo = weatherCache[dateStr];
+    let weatherDetails = '';
+    if (hasSession && weatherInfo) {
+      const weatherEmoji = getWeatherEmoji(weatherInfo.code, weatherInfo.avgCloud);
+      let tempHumidity = '';
+      const temps = [];
+      if (weatherInfo.nightTemp !== null) {
+        const temp = useCelsius ? Math.round(weatherInfo.nightTemp) : Math.round(weatherInfo.nightTemp * 9/5 + 32);
+        const unit = useCelsius ? 'C' : 'F';
+        temps.push(`🌡${temp}°${unit}`);
+      }
+      if (weatherInfo.avgHumidity > 0) {
+        temps.push(`°${Math.round(weatherInfo.avgHumidity)}%`);
+      }
+      if (temps.length > 0) {
+        tempHumidity = ` (${temps.join('|')})`;
+      }
+      if (weatherEmoji || tempHumidity) {
+        weatherDetails = `|${weatherEmoji}${tempHumidity}`;
+      }
+    }
+    html += `<div class="${dayClass}"><div class="day-number">${day} ${moonPhase}${weatherDetails}</div>${sessionHtml}</div>`;
   }
 
   const totalCells = firstDay + daysInMonth;
