@@ -13,6 +13,17 @@ const progressText = document.getElementById('progressText');
 const summaryArea = document.getElementById('summary');
 const detailsArea = document.getElementById('details');
 
+// Window Controls
+document.getElementById('min-button').addEventListener('click', () => {
+  window.electronAPI.minimize();
+});
+document.getElementById('max-button').addEventListener('click', () => {
+  window.electronAPI.maximize();
+});
+document.getElementById('close-button').addEventListener('click', () => {
+  window.electronAPI.close();
+});
+
 let selectedDirectory = null;
 
 selectBtn.addEventListener('click', async () => {

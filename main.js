@@ -7,17 +7,39 @@ const dayjs = require('dayjs');
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100,
-    height: 800,
+    height: 1000,
+    frame: false,
+    transparent: true,
+    vibrancy: 'fullscreen-ui',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      enableRemoteModule: false
+      enableRemoteModule: false,
+      // IMPORTANT! This makes the window background transparent.
+       backgroundColor: '#990a1929'
     }
   });
   win.loadFile('index.html');
 }
  
+ipcMain.on('window-minimize', () => {
+  BrowserWindow.getFocusedWindow()?.minimize();
+});
+ipcMain.on('window-maximize', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) {
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  }
+});
+ipcMain.on('window-close', () => {
+  BrowserWindow.getFocusedWindow()?.close();
+});
+
 app.on('ready', createWindow);
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

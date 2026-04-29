@@ -7,7 +7,7 @@
 <style>
     :root {
       --bg: #0a1929;
-      --card-bg: #132f4c;
+      --card-bg: rgba(19, 47, 76, 0.6);
       --text: #ffffff;
       --text-muted: #b2bac2;
       --primary: #0d6efd;
@@ -21,7 +21,8 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 16px;
       color: var(--text);
-      background: var(--bg);
+      background: rgba(10, 25, 41, 0.6);
+      backdrop-filter: blur(80px);
       line-height: 1.5;
     }
     h1, h2, h3 { margin-top: 0; font-weight: 600; }
@@ -31,6 +32,7 @@
       background: var(--card-bg);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
+      backdrop-filter: blur(80px);
       padding: 16px;
       margin-bottom: 16px;
     }
@@ -79,7 +81,7 @@
       border-radius: var(--radius);
       transform-origin: top;
       transform: scaleY(0);
-      opacity: 0;
+      opacity: 50;
       transition:
         transform 0.25s ease,
         opacity 0.25s ease,
@@ -94,7 +96,7 @@
       border: 1px solid var(--border);
       margin-top: 16px;
       transform: scaleY(1);
-      opacity: 1;
+      opacity: 50;
       transition:
         transform 0.25s ease,
         opacity 0.25s ease;
@@ -109,9 +111,91 @@
     #calendar .session:hover { filter: brightness(1.2); }
     #catalogBreakdown .catalog-row:hover { background: var(--primary); color: white; }
     #calendar .day.has-filtered { border: 2px solid var(--primary); }
+
+    /* Titlebar */
+    #titlebar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 32px;
+      background: rgba(26, 58, 92, 0.3);
+      backdrop-filter: blur(80px);
+      color: #ffffff;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      -webkit-app-region: drag;
+    }
+    #drag-region {
+      padding-left: 12px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    #window-controls {
+      display: flex;
+      -webkit-app-region: no-drag;
+    }
+    #window-controls .button {
+      width: 46px;
+      height: 32px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #window-controls .button:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    #close-button:hover {
+      background: #e81123 !important;
+    }
+
+    body {
+      padding-top: 48px;
+    }
+
+    /* Transparent tables */
+    table {
+      background: transparent;
+    }
+    th {
+      background: rgba(26, 58, 92, 0.4);
+    }
+    tr:nth-child(even) {
+      background: rgba(26, 58, 92, 0.2);
+    }
+    tr:hover {
+      background: rgba(31, 73, 122, 0.4);
+      backdrop-filter: blur(6px);
+    }
+
+    /* Solid header for File-Level Details table */
+    #details table thead, #details table thead tr, #details table thead th {
+      background-color: #1a3a5c !important;
+      background: #1a3a5c !important;
+      opacity: 1 !important;
+      backdrop-filter: none !important;
+    }
   </style>
 </head>
 <body>
+  <div id="titlebar">
+    <div id="drag-region"><b>FITS Metadata Viewer v0.8b</b></div>
+    <div id="window-controls">
+      <div class="button" id="min-button">
+        <svg width="10" height="1" viewBox="0 0 10 1"><rect fill="white" width="10" height="1"/></svg>
+      </div>
+      <div class="button" id="max-button">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path fill="none" stroke="white" d="M1,1h8v8h-8z"/></svg>
+      </div>
+      <div class="button" id="close-button">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path fill="white" d="M1,1l8,8M9,1l-8,8" stroke="white" stroke-width="1.2"/></svg>
+      </div>
+    </div>
+  </div>
   <div class="card">
     <h1>FITS Metadata Viewer</h1>
     <p style="color: var(--text-muted);">Select a directory with .fit files; subdirectories are automatically scanned.</p>
@@ -163,6 +247,7 @@
       <button id="nextMonth" style="padding: 6px 12px;">&gt;</button>
     </div>
     <div id="calendar"></div>
+
   </div>
 
   <div class="card">

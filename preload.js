@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOrganizeProgress: (callback) => ipcRenderer.on('organize-progress', callback),
   onSirilprepProgress: (callback) => ipcRenderer.on('sirilprep-progress', callback),
   onRemoveEmptyFoldersProgress: (callback) => ipcRenderer.on('remove-empty-folders-progress', callback),
+  minimize: () => ipcRenderer.send('window-minimize'),
+  maximize: () => ipcRenderer.send('window-maximize'),
+  close: () => ipcRenderer.send('window-close'),
 });
