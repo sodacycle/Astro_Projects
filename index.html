@@ -109,7 +109,7 @@
     #calendar .day-number { font-weight: 600; margin-bottom: 4px; }
     #calendar .session { font-size: 0.8rem; padding: 2px 4px; margin: 2px 0; background: var(--primary); border-radius: 3px; cursor: pointer; }
     #calendar .session:hover { filter: brightness(1.2); }
-    #catalogBreakdown .catalog-row:hover { background: var(--primary); color: white; }
+    #catalogBreakdown .catalog-row:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
     #calendar .day.has-filtered { border: 2px solid var(--primary); }
 
     /* Titlebar */
@@ -153,8 +153,68 @@
       background: #e81123 !important;
     }
 
+    /* Custom Menu Bar */
+    #menubar {
+      display: flex;
+      background: rgba(26, 58, 92, 0.3);
+      backdrop-filter: blur(80px);
+      padding: 0 12px;
+      height: 28px;
+      position: fixed;
+      top: 32px;
+      left: 0;
+      right: 0;
+      z-index: 999;
+      -webkit-app-region: drag;
+    }
+    .menu-item {
+      position: relative;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text);
+      transition: background 0.2s;
+      -webkit-app-region: no-drag;
+    }
+    .menu-item:hover {
+      background: rgba(13, 110, 253, 0.3);
+    }
+    .menu-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: rgba(19, 47, 76, 0.95);
+      backdrop-filter: blur(80px);
+      min-width: 200px;
+      border: 1px solid var(--border);
+      border-radius: 0 0 6px 6px;
+      padding: 4px 0;
+      z-index: 1000;
+      -webkit-app-region: no-drag;
+    }
+    .menu-item:hover .menu-dropdown {
+      display: block;
+    }
+    .menu-option {
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text);
+      transition: background 0.2s;
+    }
+    .menu-option:hover {
+      background: var(--primary);
+      color: white;
+    }
+    .menu-separator {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
     body {
-      padding-top: 48px;
+      padding-top: 76px;
     }
 
     /* Transparent tables */
@@ -179,6 +239,27 @@
       opacity: 1 !important;
       backdrop-filter: none !important;
     }
+
+    /* Custom scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(26, 58, 92, 0.3);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary-hover);
+    }
+    /* Hide default Electron window scrollbar */
+    body {
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -193,6 +274,46 @@
       </div>
       <div class="button" id="close-button">
         <svg width="10" height="10" viewBox="0 0 10 10"><path fill="white" d="M1,1l8,8M9,1l-8,8" stroke="white" stroke-width="1.2"/></svg>
+      </div>
+    </div>
+  </div>
+  <div id="menubar">
+    <div class="menu-item">
+      File
+      <div class="menu-dropdown">
+        <div class="menu-option" onclick="window.electronAPI.close()">Exit</div>
+      </div>
+    </div>
+    <div class="menu-item">
+      Edit
+      <div class="menu-dropdown">
+        <div class="menu-option" onclick="document.execCommand('undo')">Undo</div>
+        <div class="menu-option" onclick="document.execCommand('redo')">Redo</div>
+        <div class="menu-separator"></div>
+        <div class="menu-option" onclick="document.execCommand('cut')">Cut</div>
+        <div class="menu-option" onclick="document.execCommand('copy')">Copy</div>
+        <div class="menu-option" onclick="document.execCommand('paste')">Paste</div>
+        <div class="menu-option" onclick="document.execCommand('selectAll')">Select All</div>
+      </div>
+    </div>
+    <div class="menu-item">
+      View
+      <div class="menu-dropdown">
+        <div class="menu-option" onclick="location.reload()">Reload</div>
+        <div class="menu-option" onclick="window.electronAPI.toggleDevTools()">Toggle Developer Tools</div>
+      </div>
+    </div>
+    <div class="menu-item">
+      Window
+      <div class="menu-dropdown">
+        <div class="menu-option" onclick="window.electronAPI.minimize()">Minimize</div>
+        <div class="menu-option" onclick="window.electronAPI.maximize()">Maximize</div>
+      </div>
+    </div>
+    <div class="menu-item">
+      Help
+      <div class="menu-dropdown">
+        <div class="menu-option" onclick="alert('FITS Metadata Viewer v0.8b')">About</div>
       </div>
     </div>
   </div>

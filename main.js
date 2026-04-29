@@ -39,6 +39,10 @@ ipcMain.on('window-maximize', () => {
 ipcMain.on('window-close', () => {
   BrowserWindow.getFocusedWindow()?.close();
 });
+ipcMain.on('window-toggle-dev-tools', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) win.webContents.toggleDevTools();
+});
 
 app.on('ready', createWindow);
 app.on('window-all-closed', () => {
