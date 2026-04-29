@@ -49,7 +49,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
  
-// ─── Constants ────────────────────────────────────────────────────────────────
+// Constrants
  
 // Known stacking software names (case-insensitive).
 // FIX: Removed 'app' and 'dss' — too short and generic, caused false positives
@@ -78,7 +78,7 @@ const SCAN_SKIP_DIRS = new Set(['stacked', 'process']);
 // Directories skipped during file organization
 const PROCESS_SKIP_DIRS = new Set(['stacked', 'process', 'darks', 'flats', 'bias', 'lights']);
  
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helper functions for FITS parsing and metadata interpretation
  
 // Check FITS metadata to determine if a file is a stacked result.
 // FIX: STACKING_SOFTWARE is now defined above this function so it is never
@@ -139,7 +139,7 @@ function formatHMS(totalSeconds) {
   return `${h}${m}${s}`.trim();
 }
 
-// ─── Frame-type detection ─────────────────────────────────────────────────────
+// Frame-Type Detection
 // Shared by walkDirectoryGen (scan) and sirilprep (file organisation).
 // Returns { frameType: 'LIGHT'|'DARK'|'FLAT'|'BIAS'|'UNKNOWN', method: string }
 // Priority: FITS metadata → strict filename prefix → substring word match.
@@ -170,7 +170,7 @@ function detectFrameType(header, filename) {
 }
 
  
-// ─── Walk ─────────────────────────────────────────────────────────────────────
+// Walk a directory tree and yield FITS metadata for each file. Uses an async generator
 
 // Async generator that yields { filePath, header } one file at a time.
 // Replaces the old synchronous walkDirectory — the event loop is never blocked
@@ -227,7 +227,7 @@ async function* walkDirectoryGen(dir) {
   }
 }
 
-// ─── State ────────────────────────────────────────────────────────────────────
+// State variable to signal cancellation of long-running operations (scan, organize, remove).
  
 let cancelAllOperations = false;
  
@@ -236,7 +236,7 @@ ipcMain.handle('cancel-all', () => {
   return { canceled: true };
 });
  
-// ─── IPC: select-directory ────────────────────────────────────────────────────
+// IPC: select-directory
 ipcMain.handle('select-directory', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: ['openDirectory']
@@ -245,7 +245,7 @@ ipcMain.handle('select-directory', async () => {
   return filePaths[0];
 });
  
-// ─── IPC: scan-fits ───────────────────────────────────────────────────────────
+// IPC: scan-fits
 ipcMain.handle('scan-fits', async (event, dirPath) => {
   cancelAllOperations = false;
   if (!dirPath) return { error: 'No directory path provided.' };
@@ -338,7 +338,7 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
 
   event.sender.send('scan-progress', { current: fileCount, total: fileCount, status: 'Aggregating data...' });
 
-  // ── Target summary (light frames only) ────────────────────────────────────
+  // Build target summary (light frames only)
   const targets = {};
   metadataList
     .filter(e => e['Frame Type'] === 'LIGHT')
@@ -359,7 +359,7 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
     'Total Integration Time': formatHMS(v.totalExposure)
   }));
 
-  // ── Calibration summary (dark / flat / bias) ──────────────────────────────
+  // Build calibration summary (dark / flat / bias)
   // Group by frame-type + exposure + gain + binning + sensor-temp.
   // Within each group keep only the most recent DATE-OBS so the user can
   // see at a glance how fresh their calibration library is.
@@ -408,7 +408,7 @@ ipcMain.handle('scan-fits', async (event, dirPath) => {
   return { metadataList, targetSummary, calibrationSummary };
 });
 
-// ─── IPC: organize-stacked ────────────────────────────────────────────────────
+// IPC: organize-stacked
 ipcMain.handle('organize-stacked', async (event, dirPath) => {
   cancelAllOperations = false;
  
@@ -519,7 +519,7 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
   }
 });
  
-// ─── IPC: remove-jpg ──────────────────────────────────────────────────────────
+// IPC: remove-jpg
  ipcMain.handle('remove-jpg', async (event, dirPath) => {
   cancelAllOperations = false;
  
@@ -588,7 +588,7 @@ ipcMain.handle('organize-stacked', async (event, dirPath) => {
   }
 });
  
-// ─── IPC: sirilprep ───────────────────────────────────────────────────────────
+// IPC: sirilprep
 ipcMain.handle('sirilprep', async (event, dirPath) => {
   cancelAllOperations = false;
  
@@ -710,7 +710,7 @@ ipcMain.handle('sirilprep', async (event, dirPath) => {
   };
 });
  
-// ─── IPC: remove-empty-folders ────────────────────────────────────────────────
+// IPC: remove-empty-folders
 ipcMain.handle('remove-empty-folders', async (event, dirPath) => {
   cancelAllOperations = false;
  
