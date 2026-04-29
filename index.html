@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FITS Metadata Viewer</title>
+<!-- CSS Styles -->
 <style>
+/* CSS Variables */
     :root {
       --bg: #0a1929;
       --card-bg: rgba(19, 47, 76, 0.6);
@@ -16,6 +18,7 @@
       --shadow: 0 2px 8px rgba(0,0,0,0.3);
       --radius: 8px;
     }
+/* Base Element Styles */
     * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -28,6 +31,7 @@
     h1, h2, h3 { margin-top: 0; font-weight: 600; }
     h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
     h2 { font-size: 1.25rem; margin-bottom: 0.75rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+/* Card Component */
     .card {
       background: var(--card-bg);
       border-radius: var(--radius);
@@ -36,6 +40,7 @@
       padding: 16px;
       margin-bottom: 16px;
     }
+/* Button Styles */
     button {
       margin-right: 8px;
       margin-bottom: 8px;
@@ -56,6 +61,7 @@
     button.danger { background: #dc3545; }
     button.danger:hover:not(:disabled) { background: #bb2d3b; }
     button:disabled, #organizeBtn:disabled, #sirilprepBtn:disabled { background: #adb5bd; cursor: not-allowed; }
+/* Status and Table Base Styles */
     #status { margin: 10px 0; color: var(--text-muted); }
     table { border-collapse: collapse; width: 100%; margin: 8px 0; }
     th, td { padding: 10px 12px; border: 1px solid var(--border); text-align: left; font-size: 0.9rem; }
@@ -65,11 +71,13 @@
     #summary, #details { margin-top: 10px; overflow-x: auto; max-height: 500px; overflow-y: auto; }
     #details.loading { min-height: 100px; display: flex; align-items: center; justify-content: center; }
     #selectedPath { margin-top: 10px; color: var(--text-muted); font-size: 0.9rem; }
+/* Progress Bar Styles */
     #progressContainer { margin: 10px 0; display: none; }
     #progressBar { width: 100%; height: 8px; border-radius: 4px; }
     progress::-webkit-progress-bar { background: #1a3a5c; border-radius: 4px; }
     progress::-webkit-progress-value { background: var(--primary); border-radius: 4px; }
     #progressText { margin-top: 5px; font-size: 0.85rem; }
+/* Advanced Tools Panel */
     #advancedBox {
       max-width: 600px;
       overflow: hidden;
@@ -102,6 +110,7 @@
         opacity 0.25s ease;
     }
     #toggleAdvanced { background: #6c757d; }
+/* Calendar Grid */
     #calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
     #calendar .day-header { font-weight: 600; text-align: center; padding: 8px; background: var(--card-bg); }
     #calendar .day { min-height: 80px; padding: 6px; background: var(--card-bg); border: 1px solid var(--border); }
@@ -112,7 +121,7 @@
     #catalogBreakdown .catalog-row:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
     #calendar .day.has-filtered { border: 2px solid var(--primary); }
 
-    /* Titlebar */
+/* Titlebar (Window Drag Region) */
     #titlebar {
       display: flex;
       justify-content: space-between;
@@ -153,7 +162,7 @@
       background: #e81123 !important;
     }
 
-    /* Custom Menu Bar */
+/* Custom Menu Bar */
     #menubar {
       display: flex;
       background: rgba(26, 58, 92, 0.3);
@@ -217,7 +226,7 @@
       padding-top: 76px;
     }
 
-    /* Transparent tables */
+/* Transparent Table Overrides */
     table {
       background: transparent;
     }
@@ -232,7 +241,7 @@
       backdrop-filter: blur(6px);
     }
 
-    /* Solid header for File-Level Details table */
+/* Solid Header for File Details Table */
     #details table thead, #details table thead tr, #details table thead th {
       background-color: #1a3a5c !important;
       background: #1a3a5c !important;
@@ -240,7 +249,7 @@
       backdrop-filter: none !important;
     }
 
-    /* Custom scrollbar styling */
+/* Custom Scrollbar */
     ::-webkit-scrollbar {
       width: 8px;
       height: 8px;
@@ -256,13 +265,15 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--primary-hover);
     }
-    /* Hide default Electron window scrollbar */
+/* Body Padding for Fixed Header */
     body {
       overflow-y: auto;
     }
   </style>
 </head>
+<!-- Body Content -->
 <body>
+<!-- Titlebar with Window Controls -->
   <div id="titlebar">
     <div id="drag-region"><b>FITS Metadata Viewer v0.8b</b></div>
     <div id="window-controls">
@@ -277,6 +288,7 @@
       </div>
     </div>
   </div>
+<!-- Menu Bar with Dropdown Menus -->
   <div id="menubar">
     <div class="menu-item">
       File
@@ -317,6 +329,7 @@
       </div>
     </div>
   </div>
+<!-- Main Controls Card (Directory Selection and Actions) -->
   <div class="card">
     <h1>FITS Metadata Viewer</h1>
     <p style="color: var(--text-muted);">Select a directory with .fit files; subdirectories are automatically scanned.</p>
@@ -328,7 +341,8 @@
       <button id="toggleAdvanced" title="Show/Hide Advanced Options" class="secondary">Advanced Tools</button>
     </div>
 
-    <div id="advancedBox">
+  <!-- Advanced Tools Panel (Toggle Visibility) -->
+  <div id="advancedBox">
       <h3 style="margin-top:0;">Advanced Features</h3>
       <div style="margin-bottom: 12px;">
         <button id="organizeBtn" title="Organize the scanned Stacked/DSO_Stacked FITS files into a /Stacked_ directory." disabled>Organize Stacked Files</button>
@@ -347,16 +361,19 @@
     </div>
   </div>
 
+<!-- Target Summary Section -->
   <div class="card">
     <h2>Target Summary</h2>
     <div id="summary"></div>
   </div>
 
+<!-- Catalog Breakdown Section -->
   <div class="card">
     <h2>Catalog Breakdown</h2>
     <div id="catalogBreakdown"></div>
   </div>
 
+<!-- Imaging Calendar with Temperature Toggle -->
   <div class="card">
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
       <h2 style="margin:0;">Imaging Calendar</h2>
@@ -371,11 +388,13 @@
 
   </div>
 
+<!-- Calibration Frames Summary -->
   <div class="card">
     <h2>Calibration Frames</h2>
     <div id="calibrationSummary"></div>
   </div>
 
+<!-- File-Level Details Table -->
   <div class="card">
     <div style="display: flex; align-items: center; gap: 8px;">
       <h2>File-Level Details</h2>
@@ -384,7 +403,7 @@
     <div id="details"></div>
   </div>
 
-  <!--  Toggle Script -->
+<!-- Toggle Script for Advanced Panel -->
   <script>
     const toggleBtn = document.getElementById('toggleAdvanced');
     const advancedBox = document.getElementById('advancedBox');
@@ -395,6 +414,7 @@
     });
   </script>
 
+<!-- Main Renderer Script -->
   <script src="renderer.js"></script>
 </body>
 </html>
