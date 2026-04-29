@@ -1,3 +1,4 @@
+// DOM Element References - Cache references to UI elements for directory selection, scanning, organization, and display areas
 const selectBtn = document.getElementById('selectDir');
 const scanBtn = document.getElementById('scanBtn');
 const stopBtn = document.getElementById('stopBtn');
@@ -13,6 +14,7 @@ const progressText = document.getElementById('progressText');
 const summaryArea = document.getElementById('summary');
 const detailsArea = document.getElementById('details');
 
+// Window Management Controls - Handle Electron window minimize, maximize, close
 // Window Controls
 document.getElementById('min-button').addEventListener('click', () => {
   window.electronAPI.minimize();
@@ -26,6 +28,7 @@ document.getElementById('close-button').addEventListener('click', () => {
 
 let selectedDirectory = null;
 
+// Directory Selection Handler - Opens native dialog to select FITS directory
 selectBtn.addEventListener('click', async () => {
   const dir = await window.electronAPI.selectDirectory();
   if (dir) {
@@ -37,6 +40,7 @@ selectBtn.addEventListener('click', async () => {
   }
 });
 
+// Scan FITS Files Handler - Scans directory for FITS files, displays metadata and progress
 // Scan FITS handler
 scanBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
@@ -108,6 +112,7 @@ detailsArea.innerHTML = createTableHTML(result.metadataList, [
   document.getElementById('showAllFiles').style.display = 'inline-block';
 });
 
+// Show All Files Handler - Resets catalog filter and displays full metadata list
 document.getElementById('showAllFiles').addEventListener('click', () => {
   currentCatalogFilter = null;
   renderCalendar();
@@ -126,6 +131,7 @@ document.getElementById('showAllFiles').addEventListener('click', () => {
     });
 });
 
+// Stop Current Task Handler - Sends cancel signal to stop ongoing operations
 // Stops current task
 stopBtn.addEventListener('click', async () => {
   await window.electronAPI.cancelAll();
@@ -133,6 +139,7 @@ stopBtn.addEventListener('click', async () => {
   stopBtn.disabled = true;
 });
 
+// Organize Stacked Files Handler - Moves Stacked_ files into organized subdirectories
 // Organize Stacked_ files handler
 organizeBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
@@ -164,6 +171,7 @@ organizeBtn.addEventListener('click', async () => {
   progressText.textContent = `Moved ${result.movedFiles.length} files.`;
 });
 
+// Remove JPG Handler - Deletes JPG/JPEG files from the selected directory with progress tracking
 // Remove JPG handler
 removejpgBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
@@ -208,6 +216,7 @@ progressText.textContent = `Deleted ${result.deletedCount} JPG/JPEG files.`;
   alert(`Deleted ${result.deletedCount} JPG/JPEG files.`);
 });
 
+// Prep for Siril Handler - Organizes files into subdirectories for Siril stacking preparation
 // Prep for Siril handler
 sirilprepBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
@@ -244,6 +253,7 @@ sirilprepBtn.addEventListener('click', async () => {
   status.textContent = result.message;
 });
 
+// Register progress listener ONCE - Sets up empty folder removal progress tracking
 // Register progress listener ONCE
 window.electronAPI.onRemoveEmptyFoldersProgress((event, data) => {
   const { deletedCount } = data;
@@ -251,6 +261,7 @@ window.electronAPI.onRemoveEmptyFoldersProgress((event, data) => {
   progressText.textContent = `Removed ${deletedCount} empty folders...`;
 });
 
+// Remove Empty Folders Handler - Deletes empty directories from the selected directory
 // Remove empty folders handler
 removeemptyBtn.addEventListener('click', async () => {
   if (!selectedDirectory) {
@@ -282,6 +293,7 @@ removeemptyBtn.addEventListener('click', async () => {
 });
 
 
+// Generate HTML Table - Creates a table from data array using specified column headers
 function createTableHTML(data, columns) {
   if (!data || data.length === 0) return '<p>No data to show.</p>';
   const colCount = columns.length;
@@ -299,6 +311,7 @@ function createTableHTML(data, columns) {
 }
 
 // Creates Calibration Frame Summary (darks, flats, bias)
+// Calibration Summary Renderer - Displays summary table for calibration frames
 function renderCalibrationSummary(rows) {
   const div = document.getElementById('calibrationSummary');
   if (!div) return;
@@ -312,6 +325,7 @@ function renderCalibrationSummary(rows) {
 }
 
 // Creates Catalog Summary
+// Catalog Breakdown Renderer - Categorizes targets by catalog (Messier, NGC, IC, etc.) and creates clickable summary
 function renderCatalogBreakdown(summaryGroups) {
   const catalogDiv = document.getElementById("catalogBreakdown");
   if (!catalogDiv) return;
@@ -423,6 +437,7 @@ let siteLocation = null;
 let weatherCache = {};
 let useCelsius = localStorage.getItem('use_celsius') === 'true';
 
+// Temperature Unit Toggle - Switches between Celsius and Fahrenheit for weather display
 function toggleTempUnit() {
   useCelsius = !useCelsius;
   localStorage.setItem('use_celsius', useCelsius);
@@ -431,6 +446,7 @@ function toggleTempUnit() {
   renderCalendar();
 }
 
+// Initialize Temperature Toggle - Sets up button with current unit preference
 function initTempToggle() {
   const btn = document.getElementById('tempToggle');
   if (btn) {
@@ -439,6 +455,7 @@ function initTempToggle() {
   }
 }
 
+// Fetch Site Location - Extracts latitude/longitude from metadata to determine observing site
 async function fetchSiteLocation(metadataList) {
   for (const item of metadataList) {
     const lat = item['Latitude'];
@@ -454,6 +471,7 @@ async function fetchSiteLocation(metadataList) {
   }
 }
 
+// Fetch Weather Forecast - Retrieves historical and forecast weather data from Open-Meteo API
 async function fetchWeatherForecast() {
   if (!siteLocation) {
     const cached = localStorage.getItem('astro_site_location');
@@ -558,6 +576,7 @@ async function fetchWeatherForecast() {
   }
 }
 
+// Weather Emoji Mapper - Returns weather emoji based on weather code and cloud coverage
 function getWeatherEmoji(code, avgCloud) {
   if (avgCloud < 20) return '☀️';
   if (avgCloud < 50) return '⛅';
@@ -571,6 +590,7 @@ function getWeatherEmoji(code, avgCloud) {
   return '☁️';
 }
 
+// Render Imaging Calendar - Main calendar initialization, fetches location/weather, sets up navigation
 async function renderImagingCalendar(metadataList) {
   currentCalendarMonth = new Date().getMonth();
   currentCalendarYear = new Date().getFullYear();
@@ -613,6 +633,7 @@ async function renderImagingCalendar(metadataList) {
   renderCalendar();
 }
 
+// Moon Phase Calculator - Determines lunar phase emoji based on date using known new moon reference
 function getMoonPhase(date) {
   const knownNewMoon = new Date('2000-01-06T18:14:00Z');
   const lunarCycle = 29.53058867;
@@ -624,6 +645,7 @@ function getMoonPhase(date) {
   return phases[phase];
 }
 
+// Render Calendar Grid - Displays monthly calendar with imaging sessions, moon phases, and weather
 function renderCalendar(filtered = false) {
   const year = currentCalendarYear;
   const month = currentCalendarMonth;
