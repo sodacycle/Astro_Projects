@@ -27,7 +27,7 @@ FITS-Metadata-Viewer/
 ├── resources/             Application assets
 ├── appstream/             AppStream metadata (for software centres)
 ├── CMakeLists.txt         CMake build definition
-├── build.sh             Quick dev build script
+├── rebuild.sh             Quick dev build script
 ├── build-appimage.sh      Portable AppImage packaging script
 ├── fitsmetadataviewer.desktop   Desktop entry file
 ├── fitsmetadataviewer.svg       Application icon
@@ -42,7 +42,7 @@ There are two ways to build FITS Metadata Viewer depending on your goal.
 
 ---
 
-### Option 1 — `build.sh` (Development Build)
+### Option 1 — `rebuild.sh` (Development Build)
 
 **Use this when:** you are developing, testing, or just want to run the app
 on your own machine where Qt 6 is already installed.
@@ -71,7 +71,7 @@ sudo pacman -S qt6-base qt6-declarative qt6-tools cmake gcc
 
 ```bash
 # From the project root
-bash build.sh
+bash rebuild.sh
 
 # Then run
 ./build/AstroDataViewer
@@ -116,7 +116,7 @@ An internet connection is required on the first run only.
 # Full build (compile + package)
 bash build-appimage.sh
 
-# If you have already compiled with build.sh or a previous AppImage run,
+# If you have already compiled with rebuild.sh or a previous AppImage run,
 # skip the compile step and go straight to packaging:
 bash build-appimage.sh --skip-build
 ```
@@ -139,17 +139,69 @@ Or double-click it in your file manager.
 
 ---
 
+---
+
+### Option 3 — `build-windows.ps1` (Windows Build)
+
+**Use this when:** you are building on or for Windows 10/11.
+
+The application compiles and runs on Windows without code changes. Qt 6 handles
+all platform differences: `QFileDialog` uses the native Windows file picker,
+the window uses the native Windows title bar and style, and `QNetworkAccessManager`
+uses Windows networking APIs.
+
+#### Prerequisites
+
+| Requirement | Where to get it |
+|---|---|
+| Qt 6.6+ | [Qt Online Installer](https://www.qt.io/download) — choose MSVC 2019/2022 64-bit or MinGW 64-bit |
+| Visual Studio 2019/2022 | [visualstudio.microsoft.com](https://visualstudio.microsoft.com/) — install "Desktop development with C++" workload |
+| CMake 3.16+ | Bundled with Visual Studio, or [cmake.org](https://cmake.org/download/) |
+
+> **MinGW alternative:** If you prefer to avoid Visual Studio, install the
+> MinGW 64-bit toolchain via the Qt Installer. The script auto-detects both.
+
+#### Build
+
+Open **PowerShell** in the project root:
+
+```powershell
+# Allow script execution (one-time, run as administrator if needed)
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+# Build and deploy — auto-detects Qt location
+.\build-windows.ps1
+
+# If Qt is in a non-standard location:
+.\build-windows.ps1 -QtPath "C:\Qt\6.7.0\msvc2019_64"
+
+# Skip recompiling, just re-run the deployment step:
+.\build-windows.ps1 -SkipBuild
+```
+
+The script configures and compiles in Release mode, then runs `windeployqt6`
+to copy all required Qt DLLs, platform plugins, and QML modules into
+`dist\FITSMetadataViewer\`. Zip that folder and it runs on any Windows 10/11
+machine without Qt installed.
+
+#### Running
+
+Double-click `dist\FITSMetadataViewer\bin\AstroDataViewer.exe` or run it
+from a Command Prompt or PowerShell.
+
+---
+
 ## Quick Comparison
 
-| | `build.sh` | `build-appimage.sh` |
-|---|---|---|
-| **Purpose** | Development / personal use | Distribution / portability |
-| **Output** | `build/AstroDataViewer` binary | `FITSMetadataViewer-x86_64.AppImage` |
-| **Requires Qt 6 on target** | Yes | No — bundled inside |
-| **Build time** | Fast (~1 min) | Slower (~3–5 min first run) |
-| **Output size** | Small (~5 MB binary) | ~43 MB self-contained |
-| **Internet needed** | No | First run only (tool download) |
-| **System theme support** | Full (uses installed Qt) | Partial (bundled Qt style) |
+| | `rebuild.sh` (Linux) | `build-appimage.sh` (Linux) | `build-windows.ps1` (Windows) |
+|---|---|---|---|
+| **Purpose** | Dev / personal use | Portable Linux bundle | Windows build |
+| **Output** | `build/AstroDataViewer` | `*.AppImage` (~43 MB) | `dist/` folder |
+| **Requires Qt on target** | Yes | No | No |
+| **Build time** | Fast (~1 min) | Slower (~3–5 min first run) | Medium (~2–3 min) |
+| **Output size** | ~5 MB binary | ~43 MB | ~60 MB folder |
+| **Internet needed** | No | First run only | No |
+| **System theme** | Full native | Partial (bundled Qt) | Full native (Windows) |
 
 ---
 

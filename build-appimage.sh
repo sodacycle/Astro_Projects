@@ -17,6 +17,7 @@ for arg in "$@"; do [[ "$arg" == "--skip-build" ]] && SKIP_BUILD=true; done
 
 info()    { echo -e "\e[1;34m==> $*\e[0m"; }
 success() { echo -e "\e[1;32m==> $*\e[0m"; }
+warn()    { echo -e "\e[1;33mWARN: $*\e[0m"; }
 die()     { echo -e "\e[1;31mERROR: $*\e[0m" >&2; exit 1; }
 
 download() {
@@ -79,6 +80,11 @@ info "Qt prefix: $QT_PREFIX"
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 if [[ "$SKIP_BUILD" == false ]]; then
+    info "Fixing file timestamps to prevent clock-skew warnings..."
+    find "$SCRIPT_DIR/src" "$SCRIPT_DIR/qml" "$SCRIPT_DIR/CMakeLists.txt" \
+         -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.qml" -o -name "CMakeLists.txt" \) \
+         -exec touch {} + 2>/dev/null || true
+
     info "Configuring Release build..."
     cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
@@ -88,6 +94,10 @@ if [[ "$SKIP_BUILD" == false ]]; then
 else
     [[ -d "$BUILD_DIR" ]] || die "Build directory $BUILD_DIR does not exist."
     info "Skipping build."
+    # Touch source files to prevent ninja clock-skew warnings on the install step
+    find "$SCRIPT_DIR/src" "$SCRIPT_DIR/qml" "$SCRIPT_DIR/CMakeLists.txt" \
+         -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.qml" -o -name "CMakeLists.txt" \) \
+         -exec touch {} + 2>/dev/null || true
 fi
 
 # ── Install into AppDir ───────────────────────────────────────────────────────
@@ -108,26 +118,57 @@ install -Dm644 "$SCRIPT_DIR/fitsmetadataviewer.svg" \
 # FIX 2: appimagetool requires the .desktop file AND icon at the AppDir root
 cp "$SCRIPT_DIR/fitsmetadataviewer.desktop" "$APPDIR/fitsmetadataviewer.desktop"
 
-# AppStream metadata — suppresses appimagetool warning
-install -Dm644 "$SCRIPT_DIR/appstream/fitsmetadataviewer.appdata.xml" \
-    "$APPDIR/usr/share/metainfo/fitsmetadataviewer.appdata.xml" 
+# AppStream metadata — suppresses appimagetool warning about missing metadata.
+# Place fitsmetadataviewer.appdata.xml in an appstream/ subdirectory to include it.
+APPDATA="$SCRIPT_DIR/appstream/fitsmetadataviewer.appdata.xml"
+if [[ -f "$APPDATA" ]]; then
+    install -Dm644 "$APPDATA" "$APPDIR/usr/share/metainfo/fitsmetadataviewer.appdata.xml"
+else
+    warn "appstream/fitsmetadataviewer.appdata.xml not found — AppStream metadata will be missing."
+    warn "Create the appstream/ directory and add the file to suppress this warning."
+fi
 cp "$SCRIPT_DIR/fitsmetadataviewer.svg"     "$APPDIR/fitsmetadataviewer.svg"
 
 # ── Pass 1: Deploy ELF dependencies ──────────────────────────────────────────
 info "Pass 1: deploying ELF dependencies..."
 export DISABLE_COPYRIGHT_FILES_DEPLOYMENT=1
+# Redirect stderr to filter out the known strip/.relr.dyn noise from linuxdeploy's
+# bundled old strip binary. The "Failed to execute deferred operations" line and all
+# "Strip call failed" / "unknown type [0x13]" messages are harmless — libraries are
+# copied correctly before strip is attempted. We show everything except those lines.
 "$LINUXDEPLOY" \
     --appdir="$APPDIR" \
     --executable="$APPDIR/usr/bin/$BINARY_NAME" \
     --desktop-file="$APPDIR/usr/share/applications/fitsmetadataviewer.desktop" \
     --icon-file="$SCRIPT_DIR/fitsmetadataviewer.svg" \
-    || true  # strip errors on modern Arch ELFs are non-fatal
+    2>&1 | grep -v "Strip call failed\|relr\.dyn\|Unable to recognise\|deferred operations\|unsupported GNU_PROPERTY" || true
 
 # ── Pass 2: Bundle Qt plugins and QML imports ─────────────────────────────────
 info "Pass 2: bundling Qt plugins and QML imports..."
 export QML_SOURCES_PATHS="$SCRIPT_DIR/qml"
 
-"$LINUXDEPLOY_QT" --appdir="$APPDIR" || true
+# Exclude Qt modules this app does not use to keep the AppImage small.
+# VirtualKeyboard, PDF, Timeline, VectorImage, and the KDE extra image
+# format plugins (kimg_*) are pulled in transitively by the Qt plugin
+# scanner but are not needed for a FITS metadata viewer.
+export EXCLUDE_LIBS="libQt6VirtualKeyboard.so.6:libQt6VirtualKeyboardQml.so.6:libQt6VirtualKeyboardSettings.so.6:libQt6Pdf.so.6:libQt6PdfQuick.so.6:libQt6QuickTimeline.so.6:libQt6QuickTimelineBlendTrees.so.6:libQt6QuickVectorImage.so.6:libQt6QuickVectorImageGenerator.so.6:libQt6QuickVectorImageHelpers.so.6:libQt6PrintSupport.so.6:libQt6Sql.so.6:libQt6Svg.so.6:libQt6HunspellInputMethod.so.6:libQt6QmlXmlListModel.so.6:libQt6QmlLocalStorage.so.6"
+
+"$LINUXDEPLOY_QT" --appdir="$APPDIR" \
+    2>&1 | grep -v "Strip call failed\|relr\.dyn\|Unable to recognise\|deferred operations\|unsupported GNU_PROPERTY" || true
+
+# Remove unused QML modules that were bundled anyway
+info "Removing unused QML modules..."
+rm -rf     "$APPDIR/usr/qml/QtQuick/VirtualKeyboard"     "$APPDIR/usr/qml/QtQuick/Pdf"     "$APPDIR/usr/qml/QtQuick/Timeline"     "$APPDIR/usr/qml/QtQuick/VectorImage"     "$APPDIR/usr/qml/QtQuick/tooling"     "$APPDIR/usr/qml/QtQuick/LocalStorage"     "$APPDIR/usr/qml/QtQuick/Particles"     "$APPDIR/usr/qml/QtQuick/Shapes/DesignHelpers"     "$APPDIR/usr/qml/QtQuick/Controls/designer"     2>/dev/null || true
+
+# Remove KDE extra image format plugins — not needed for FITS metadata display
+info "Removing unused image format plugins..."
+find "$APPDIR/usr/plugins/imageformats" -name "kimg_*" -delete 2>/dev/null || true
+
+# Remove unused lib dependencies pulled in by excluded modules
+info "Removing unused libraries..."
+for lib in     libQt6VirtualKeyboard libQt6Pdf libQt6PdfQuick libQt6PrintSupport     libQt6Sql libQt6Svg libQt6HunspellInputMethod libQt6QmlXmlListModel     libQt6QmlLocalStorage libQt6QuickTimeline libQt6QuickTimelineBlendTrees     libQt6QuickVectorImage libQt6QuickVectorImageGenerator libQt6QuickVectorImageHelpers     libhunspell libOpenEXR libIex libIlmThread libOpenEXRCore     libraw libheif libde265 libaom libdav1d libSvtAv1Enc librav1e     libavif libjxl libjxl_cms libjxl_threads libhwy libsharpyuv     libwebp libwebpdemux libwebpmux libopenjp2 libopenjph libjpegxr libjxrglue     libjasper libtiff liblcms2 libyuv libmng libx264 libx265 libopenh264     libdeflate libjbig libjpeg; do
+    find "$APPDIR/usr/lib" -name "${lib}.so*" -delete 2>/dev/null || true
+done
 
 # ── Write AppRun ──────────────────────────────────────────────────────────────
 info "Writing AppRun..."

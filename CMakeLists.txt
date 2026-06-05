@@ -9,7 +9,9 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets Quick QuickControls2 Network Concurrent)
 
-qt_add_executable(AstroDataViewer
+# WIN32 prevents a console window appearing behind the app on Windows.
+# On Linux/macOS this flag is ignored.
+qt_add_executable(AstroDataViewer WIN32
     src/main.cpp
     src/fitsparser.h     src/fitsparser.cpp
     src/fitsscanner.h    src/fitsscanner.cpp
