@@ -25,7 +25,7 @@ Rectangle {
         Text {
             Layout.fillWidth: true
             Layout.leftMargin: 12
-            text: "FITS Metadata Viewer v1.0"
+            text: "FITS Metadata Viewer v1.0 Beta"
             color: "#b2bac2"
             font.pixelSize: 13
             verticalAlignment: Text.AlignVCenter
