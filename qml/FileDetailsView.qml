@@ -85,7 +85,7 @@ Rectangle {
                 width: parent.width - showAllBtn.width - 8
             }
             Button {
-                id: showAllBtn; text: "Show All"; visible: false; flat: true
+                id: showAllBtn; text: "Show All"; visible: false
                 anchors.verticalCenter: parent.verticalCenter
                 onClicked: root.showAll()
             }

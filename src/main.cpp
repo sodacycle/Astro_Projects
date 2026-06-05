@@ -1,7 +1,6 @@
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QQuickStyle>
 #include <QDirIterator>
 
 #include "fitsscanner.h"
@@ -11,21 +10,18 @@
 
 int main(int argc, char *argv[])
 {
-    // QApplication (rather than QGuiApplication) is required for QFileDialog,
-    // which provides the native KDE/GTK file picker on Linux via the Qt
-    // platform theme integration. QGuiApplication bypasses this and falls back
-    // to Qt's own non-native dialog implementation.
     QApplication app(argc, argv);
     app.setApplicationName("FITS Metadata Viewer");
     app.setApplicationVersion("1.0.0");
     app.setOrganizationName("FITSMetadataViewer");
     app.setOrganizationDomain("fitsmetadataviewer.app");
 
-    QQuickStyle::setStyle("Material");
-
-    QQmlApplicationEngine engine;
-
-    // ── Backend objects exposed to QML via context properties ─────────────────
+    // ── Backend objects ───────────────────────────────────────────────────────
+    // Declared before the engine so they outlive it. C++ destroys stack objects
+    // in reverse declaration order, meaning the engine (declared after) is
+    // destroyed first — while all backends are still valid. This prevents the
+    // "Cannot read property of null" errors that occur when the QML engine
+    // evaluates bindings during teardown against already-destroyed C++ objects.
     FitsScanner             scanner;
     FileOrganizer           organizer;
     WeatherService          weatherService;
@@ -33,6 +29,9 @@ int main(int argc, char *argv[])
     TargetSummaryModel      targetSummaryModel;
     CalibrationSummaryModel calibrationSummaryModel;
     CatalogModel            catalogModel;
+
+    // ── Engine (destroyed before backends due to declaration order) ───────────
+    QQmlApplicationEngine engine;
 
     QQmlContext *ctx = engine.rootContext();
     ctx->setContextProperty("scanner",                 &scanner);

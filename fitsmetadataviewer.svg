@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="#1a2a4a"/>
+  <!-- Star field dots -->
+  <circle cx="60"  cy="50"  r="3" fill="white" opacity="0.9"/>
+  <circle cx="100" cy="30"  r="2" fill="white" opacity="0.7"/>
+  <circle cx="180" cy="45"  r="3" fill="white" opacity="0.8"/>
+  <circle cx="210" cy="80"  r="2" fill="white" opacity="0.6"/>
+  <circle cx="40"  cy="100" r="2" fill="white" opacity="0.7"/>
+  <circle cx="220" cy="160" r="3" fill="white" opacity="0.9"/>
+  <circle cx="50"  cy="190" r="2" fill="white" opacity="0.6"/>
+  <circle cx="190" cy="210" r="2" fill="white" opacity="0.7"/>
+  <!-- Telescope / FITS frame symbol -->
+  <rect x="88" y="88" width="80" height="80" rx="6"
+        fill="none" stroke="#4a9eff" stroke-width="6"/>
+  <!-- Cross-hairs -->
+  <line x1="128" y1="78" x2="128" y2="98"  stroke="#4a9eff" stroke-width="4" stroke-linecap="round"/>
+  <line x1="128" y1="158" x2="128" y2="178" stroke="#4a9eff" stroke-width="4" stroke-linecap="round"/>
+  <line x1="78"  y1="128" x2="98"  y2="128" stroke="#4a9eff" stroke-width="4" stroke-linecap="round"/>
+  <line x1="158" y1="128" x2="178" y2="128" stroke="#4a9eff" stroke-width="4" stroke-linecap="round"/>
+  <!-- Central star -->
+  <circle cx="128" cy="128" r="10" fill="#4a9eff"/>
+  <circle cx="128" cy="128" r="5"  fill="white"/>
+</svg>

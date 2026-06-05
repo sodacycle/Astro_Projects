@@ -117,7 +117,7 @@ Rectangle {
             }
             Button {
                 id: tempBtn; text: weatherService.celsius ? "°C / °F" : "°F / °C"
-                flat: true; font.pixelSize: 11; implicitWidth: 80; implicitHeight: 28
+                font.pixelSize: 11; implicitWidth: 80; implicitHeight: 28
                 anchors.verticalCenter: parent.verticalCenter
                 onClicked: weatherService.toggleUnit()
             }

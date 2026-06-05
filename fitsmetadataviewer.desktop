@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=FITS Metadata Viewer
+GenericName=Astrophotography Metadata Viewer
+Comment=Scan and inspect FITS file metadata
+Exec=AstroDataViewer
+Icon=fitsmetadataviewer
+Categories=Science;
+Keywords=FITS;astronomy;astrophotography;metadata;
+StartupNotify=true

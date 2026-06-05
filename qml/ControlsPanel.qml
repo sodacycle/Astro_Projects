@@ -59,7 +59,6 @@ Rectangle {
             }
             Button {
                 text: advancedPanel.visible ? "Hide Advanced Tools" : "Advanced Tools"
-                flat: true
                 onClicked: advancedPanel.visible = !advancedPanel.visible
             }
         }
