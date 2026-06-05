@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^bash -lc 'python3 -c \"import os; \\[print\\(root\\) for root,dirs,files in os\\.walk\\(\\\\\"qml\\\\\"\\) if \\\\\"\\(\\\\\" in root\\]\"'$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

@@ -1,0 +1,133 @@
+import QtQuick
+import QtQuick.Controls
+
+Rectangle {
+    id: root
+    height: col.height + 32
+    color:        window.sysPal.base
+    border.color: window.sysPal.mid
+    border.width: 1
+    radius: 6
+
+    property int rowCount: 0
+    Connections {
+        target: targetSummaryModel
+        function onModelReset()   { root.rowCount = targetSummaryModel.rowCount() }
+        function onRowsInserted() { root.rowCount = targetSummaryModel.rowCount() }
+        function onRowsRemoved()  { root.rowCount = targetSummaryModel.rowCount() }
+    }
+
+    property var colW: [220, 110, 160, 200]
+    property var colL: ["Target","FITS Count","Files With Exposure","Total Integration Time"]
+
+    Column {
+        id: col
+        anchors.top:     parent.top
+        anchors.left:    parent.left
+        anchors.right:   parent.right
+        anchors.margins: 16
+        spacing: 10
+
+        Text {
+            text: "Target Summary"
+            font.pixelSize: 20; font.bold: true
+            color: window.sysPal.windowText; width: parent.width
+        }
+
+        // Column headers
+        Row {
+            spacing: 0; visible: root.rowCount > 0
+            Repeater {
+                model: root.colL
+                Rectangle {
+                    width: root.colW[index]; height: 32
+                    color: window.sysPal.alternateBase
+                    Text {
+                        anchors.fill: parent; anchors.leftMargin: 8
+                        text: modelData; color: window.sysPal.windowText
+                        font.pixelSize: 13; font.bold: true
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+        }
+
+        // Data rows
+        Item {
+            width: parent.width
+            height: root.rowCount > 0 ? Math.min(300, root.rowCount * 36 + 2) : 0
+            visible: root.rowCount > 0
+
+            ListView {
+                id: targetList
+                anchors.fill: parent
+                clip: true
+                model: targetSummaryModel
+                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                delegate: Rectangle {
+                    // FIX: capture all four role values into named properties
+                    // before any inner Repeater. Using model.X inside an array
+                    // literal passed to a child Repeater shadows 'model' with
+                    // the child's own model context, producing undefined values.
+                    required property int    index
+                    required property string targetName
+                    required property int    fitsCount
+                    required property int    filesWithExposure
+                    required property string integrationTime
+
+                    width: targetList.width; height: 36
+                    color: index % 2 === 0 ? window.sysPal.alternateBase : "transparent"
+
+                    Row {
+                        anchors.fill: parent
+
+                        Rectangle {
+                            width: root.colW[0]; height: parent.height; color: "transparent"
+                            Text {
+                                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                                text: targetName
+                                color: window.sysPal.windowText; font.pixelSize: 13
+                                verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                            }
+                        }
+                        Rectangle {
+                            width: root.colW[1]; height: parent.height; color: "transparent"
+                            Text {
+                                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                                text: fitsCount
+                                color: window.sysPal.windowText; font.pixelSize: 13
+                                verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                            }
+                        }
+                        Rectangle {
+                            width: root.colW[2]; height: parent.height; color: "transparent"
+                            Text {
+                                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                                text: filesWithExposure
+                                color: window.sysPal.windowText; font.pixelSize: 13
+                                verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                            }
+                        }
+                        Rectangle {
+                            width: root.colW[3]; height: parent.height; color: "transparent"
+                            Text {
+                                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                                text: integrationTime
+                                color: window.sysPal.windowText; font.pixelSize: 13
+                                verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: "Scan FITS files to populate the target summary."
+            color: window.sysPal.placeholderText; font.pixelSize: 13
+            visible: root.rowCount === 0; width: parent.width
+        }
+        Item { width: 1; height: 4 }
+    }
+}
