@@ -27,7 +27,7 @@ FITS-Metadata-Viewer/
 ├── resources/             Application assets
 ├── appstream/             AppStream metadata (for software centres)
 ├── CMakeLists.txt         CMake build definition
-├── rebuild.sh             Quick dev build script
+├── build.sh             Quick dev build script
 ├── build-appimage.sh      Portable AppImage packaging script
 ├── fitsmetadataviewer.desktop   Desktop entry file
 ├── fitsmetadataviewer.svg       Application icon
@@ -150,6 +150,34 @@ Or double-click it in your file manager.
 | **Output size** | Small (~5 MB binary) | ~43 MB self-contained |
 | **Internet needed** | No | First run only (tool download) |
 | **System theme support** | Full (uses installed Qt) | Partial (bundled Qt style) |
+
+---
+
+## Desktop Environment Compatibility
+
+The application runs on any Linux desktop. The level of visual integration
+depends on which Qt platform theme plugin is installed.
+
+| Desktop | Package to install | What it provides |
+|---|---|---|
+| KDE Plasma | *(built-in)* | Full Breeze theming, native file picker |
+| GNOME | `qt6-platformtheme-gtk3` (Arch) / `qt6-gtk-platformtheme` (Ubuntu) | GTK colour scheme, native GNOME file picker |
+| XFCE / Cinnamon / MATE | same as GNOME above | GTK colour scheme, native file picker |
+| Other / none | *(nothing required)* | Qt Fusion style — functional but not themed |
+
+The application detects the running desktop at startup and automatically
+applies the correct platform theme if the plugin is available. No manual
+configuration is required.
+
+### Wayland
+
+GNOME 45+ defaults to a Wayland session. The application supports Wayland
+natively if `qt6-wayland` is installed (Arch: `qt6-wayland`, Ubuntu:
+`qt6-wayland`). Without it the app runs under XWayland, which works correctly
+but without native Wayland HiDPI scaling and input handling.
+
+The application detects the session type at startup and chooses the best
+available backend automatically.
 
 ---
 

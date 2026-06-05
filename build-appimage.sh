@@ -134,10 +134,43 @@ info "Writing AppRun..."
 cat > "$APPDIR/AppRun" << 'APPRUN'
 #!/usr/bin/env bash
 HERE="$(cd "$(dirname "$0")" && pwd)"
+
+# Core library and plugin paths
 export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export QT_PLUGIN_PATH="$HERE/usr/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
 export QML_IMPORT_PATH="$HERE/usr/qml${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
 export QT_QPA_PLATFORM_PLUGIN_PATH="$HERE/usr/plugins/platforms"
+
+# Platform theme — detect the running desktop and apply the matching Qt
+# platform theme plugin if it was bundled. This gives a native file picker
+# and colour scheme on GNOME (gtk3) and KDE (kde/kde6) desktops.
+# If neither plugin is available the app falls back to Qt's Fusion style.
+if [ -z "$QT_QPA_PLATFORMTHEME" ]; then
+    _DESKTOP="${XDG_CURRENT_DESKTOP:-}${DESKTOP_SESSION:-}"
+    _DESKTOP_LOWER="$(echo "$_DESKTOP" | tr '[:upper:]' '[:lower:]')"
+    case "$_DESKTOP_LOWER" in
+        *gnome*|*unity*|*cinnamon*|*mate*|*xfce*)
+            [ -f "$HERE/usr/plugins/platformthemes/libqgtk3.so" ] && \
+                export QT_QPA_PLATFORMTHEME=gtk3
+            ;;
+        *kde*|*plasma*)
+            if [ -f "$HERE/usr/plugins/platformthemes/libqkde6.so" ]; then
+                export QT_QPA_PLATFORMTHEME=kde6
+            elif [ -f "$HERE/usr/plugins/platformthemes/libqkde.so" ]; then
+                export QT_QPA_PLATFORMTHEME=kde
+            fi
+            ;;
+    esac
+fi
+
+# Wayland — if the session is Wayland and the bundled platform plugin exists,
+# prefer native Wayland rendering. Falls back silently to XWayland (xcb)
+# which works on all compositors.
+if [ -z "$QT_QPA_PLATFORM" ] && [ -n "$WAYLAND_DISPLAY" ]; then
+    [ -f "$HERE/usr/plugins/platforms/libqwayland-generic.so" ] && \
+        export QT_QPA_PLATFORM=wayland
+fi
+
 exec "$HERE/usr/bin/AstroDataViewer" "$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"
