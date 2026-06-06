@@ -3,7 +3,7 @@ import QtQuick.Controls
 
 ApplicationWindow {
     id: window
-    title: "FITS Metadata Viewer v1.0"
+    title: "FITS Metadata Viewer v1.0 Beta"
     width: 1100
     height: 1000
     minimumWidth: 800

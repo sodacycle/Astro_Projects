@@ -27,8 +27,7 @@ ui_*.h
 *.so.*
 
 # IDE files
-.vscode/settings.json
-.vscode/launch.json
+.vscode/
 .idea/
 *.swp
 *.swo

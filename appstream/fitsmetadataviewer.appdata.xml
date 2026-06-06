@@ -1,30 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>fitsmetadataviewer</id>
+  <!-- cid must be reverse-DNS format matching the .desktop file ID -->
+  <id>app.fitsmetadataviewer.FITSMetadataViewer</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>FITS Metadata Viewer</name>
   <summary>Scan and inspect FITS astrophotography file metadata</summary>
+
+  <developer id="app.fitsmetadataviewer">
+    <name>FITS Metadata Viewer Contributors</name>
+  </developer>
+
   <description>
     <p>
       A desktop application for scanning directories of FITS files and
-      inspecting their metadata. Features include recursive directory scanning,
-      target grouping, integration time aggregation, calibration frame
-      summaries, an imaging calendar with weather data, and catalog breakdown
-      by Messier, NGC, IC, and other object catalogs.
+      inspecting their metadata. Designed for astrophotographers who want
+      to review their imaging sessions without leaving the desktop.
     </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Recursive directory scanning for .fit and .fits files</li>
+      <li>FITS header metadata extraction — no Python required</li>
+      <li>Target grouping with total integration time aggregation</li>
+      <li>Calibration frame summaries grouped by type and settings</li>
+      <li>Imaging calendar with moon phase and historical weather data</li>
+      <li>Catalog breakdown by Messier, NGC, IC, Sharpless, and more</li>
+      <li>File organiser tools for Siril preparation and cleanup</li>
+    </ul>
   </description>
+
   <launchable type="desktop-id">fitsmetadataviewer.desktop</launchable>
-  <url type="homepage">https://github.com/fits-metadata-viewer</url>
+
+  <url type="homepage">https://github.com/sodacycle/FITS-Metadata-Viewer</url>
+
   <provides>
     <binary>AstroDataViewer</binary>
   </provides>
+
   <categories>
     <category>Science</category>
     <category>Astronomy</category>
   </categories>
+
+  <keywords>
+    <keyword>FITS</keyword>
+    <keyword>astronomy</keyword>
+    <keyword>astrophotography</keyword>
+    <keyword>metadata</keyword>
+    <keyword>telescope</keyword>
+  </keywords>
+
   <releases>
-    <release version="1.0.0" date="2026-06-05"/>
+    <release version="1.0.0" date="2026-06-05">
+      <description>
+        <p>Initial release.</p>
+      </description>
+    </release>
   </releases>
+
   <content_rating type="oars-1.1"/>
 </component>
