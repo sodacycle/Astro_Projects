@@ -11,7 +11,10 @@ Rectangle {
     property int rowCount: 0
     property var allRows: []
     property var displayRows: []
+    property bool _keepDisplay: false
+
     signal showAllRequested()
+    signal fileOpenRequested(string path, string name)
 
     property var allColumns: [
         "Frame Type","File","Target","Start Time UTC","End Time UTC",
@@ -23,7 +26,17 @@ Rectangle {
     property var colW: [100,200,150,180,180,110,110,140,150,150,130,100,100,100,100,80,120,80,120,100,120,100,150]
     property int totalW: { var w=0; for(var i=0;i<colW.length;i++) w+=colW[i]; return w }
 
-    onAllRowsChanged: { displayRows = allRows; showAllBtn.visible = false }
+    onAllRowsChanged: {
+        if (!_keepDisplay) { displayRows = allRows; showAllBtn.visible = false }
+    }
+
+    // Remove one row by file path without resetting any active filter
+    function removeRow(path) {
+        _keepDisplay = true
+        allRows    = allRows.filter(function(r)    { return r["Path"] !== path })
+        displayRows = displayRows.filter(function(r) { return r["Path"] !== path })
+        _keepDisplay = false
+    }
 
     Connections {
         target: metadataModel
@@ -59,6 +72,15 @@ Rectangle {
         displayRows = filtered; showAllBtn.visible = true
     }
 
+    function filterByTarget(target) {
+        if (!allRows.length) return
+        var filtered = []
+        for (var i = 0; i < allRows.length; i++) {
+            if (allRows[i]["Target"] === target) filtered.push(allRows[i])
+        }
+        displayRows = filtered; showAllBtn.visible = true
+    }
+
     function filterByTargetAndDate(target, date) {
         if (!allRows.length) return
         var filtered = []
@@ -87,6 +109,9 @@ Rectangle {
             Button {
                 id: showAllBtn; text: "Show All"; visible: false
                 anchors.verticalCenter: parent.verticalCenter
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Clear the active filter and show\nall scanned FITS files."
                 onClicked: root.showAll()
             }
         }
@@ -127,6 +152,7 @@ Rectangle {
                 }
 
                 ListView {
+                    id: detailsList
                     anchors { left: parent.left; right: parent.right
                               top: parent.top; topMargin: 32; bottom: parent.bottom }
                     clip: true
@@ -136,13 +162,14 @@ Rectangle {
                     delegate: Item {
                         required property var modelData
                         required property int index
-                        width: listView.width; height: 30
-
-                        id: listView
+                        width: detailsList.width; height: 30
 
                         Rectangle {
                             x: -pane.hOffset; width: root.totalW; height: parent.height
-                            color: index % 2 === 0 ? window.sysPal.alternateBase : "transparent"
+                            color: rowMouse.containsMouse
+                                   ? window.sysPal.highlight
+                                   : (index % 2 === 0 ? window.sysPal.alternateBase : "transparent")
+                            radius: 2
                         }
                         Row {
                             x: -pane.hOffset; y: 0; spacing: 0; height: parent.height
@@ -155,10 +182,27 @@ Rectangle {
                                     Text {
                                         anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 4
                                         text: { var v = modelData[colKey]; return v !== undefined && v !== null ? v : "" }
-                                        color: window.sysPal.windowText; font.pixelSize: 12
+                                        color: rowMouse.containsMouse
+                                               ? window.sysPal.highlightedText
+                                               : window.sysPal.windowText
+                                        font.pixelSize: 12
                                         verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
                                     }
                                 }
+                            }
+                        }
+                        MouseArea {
+                            id: rowMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            ToolTip.visible: containsMouse
+                            ToolTip.delay: 600
+                            ToolTip.text: "Click to open '" + (modelData["File"] || "") + "' in the FITS viewer"
+                            onClicked: {
+                                var p = modelData["Path"] || ""
+                                var n = modelData["File"] || ""
+                                if (p !== "") root.fileOpenRequested(p, n)
                             }
                         }
                     }

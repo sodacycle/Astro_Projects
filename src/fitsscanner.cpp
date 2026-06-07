@@ -257,6 +257,20 @@ void FitsScanner::walkDirectory(const QString &dir, QList<MetadataEntry> &result
             entry.target = anyField(header, {"OBJECT", "TARGET", "TITLE"}, "Unknown");
         }
 
+        // Normalize mosaic/panel variants so that "NGC 7000 Mosaic", "NGC 7000 Panel 1",
+        // and plain "NGC 7000" are all treated as the same target. The regex is not
+        // anchored to $ so Qt's remove() strips every occurrence in one pass.
+        {
+            static const QRegularExpression mosaicTerm(
+                R"([\s_\-]*(mosaic|panel|pano|panorama)[\s_\-]*\d*)",
+                QRegularExpression::CaseInsensitiveOption);
+            QString normalized = entry.target;
+            normalized.remove(mosaicTerm);
+            normalized = normalized.simplified();
+            if (!normalized.isEmpty())
+                entry.target = normalized;
+        }
+
         entry.exposureTimeS = anyField(header, {"EXPTIME", "EXPOSURE", "EXPOSURE_TIME"}, "0").toDouble();
         entry.numberOfSubs = anyField(header, {"STACKCNT", "NFRAMES", "NSTACK", "FRAMES"}, "1").toInt();
 
@@ -301,11 +315,8 @@ void FitsScanner::walkDirectory(const QString &dir, QList<MetadataEntry> &result
 
 QString FitsScanner::selectDirectory()
 {
-    QString dir = QFileDialog::getExistingDirectory(
-        nullptr,
-        "Select Directory with FITS Files",
-        QString(),
-        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QString dir = QFileDialog::getExistingDirectory(nullptr,
+        "Select Directory with FITS Files");
     if (!dir.isEmpty()) {
         m_statusText = "Directory selected. Ready to scan.";
         emit progressChanged();

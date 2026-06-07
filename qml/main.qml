@@ -45,12 +45,27 @@ ApplicationWindow {
                 anchors.left:    parent.left
                 anchors.right:   parent.right
                 anchors.margins: 12
+                onJpgScanned: function(rows) {
+                    fileDetailsView.allRows = rows
+                }
+                onJpgCleared: {
+                    fileDetailsView.allRows = window.fullMetadataList
+                    imagingCalendar.activeCatalogFilter = ""
+                    imagingCalendar.activeTargetFilter  = ""
+                    imagingCalendar.buildCalendar(window.fullMetadataList)
+                }
             }
             TargetSummaryView {
                 id: targetSummaryView
                 anchors.left:    parent.left
                 anchors.right:   parent.right
                 anchors.margins: 12
+                onTargetSelected: function(name) {
+                    imagingCalendar.activeTargetFilter  = name
+                    imagingCalendar.activeCatalogFilter = ""
+                    imagingCalendar.buildCalendar(window.fullMetadataList)
+                    fileDetailsView.filterByTarget(name)
+                }
             }
             CatalogBreakdown {
                 id: catalogBreakdown
@@ -59,6 +74,7 @@ ApplicationWindow {
                 anchors.margins: 12
                 onCatalogSelected: function(name) {
                     imagingCalendar.activeCatalogFilter = name
+                    imagingCalendar.activeTargetFilter  = ""
                     imagingCalendar.buildCalendar(window.fullMetadataList)
                     fileDetailsView.filterByCatalog(name)
                 }
@@ -83,9 +99,22 @@ ApplicationWindow {
                 height: 500
                 onShowAllRequested: {
                     imagingCalendar.activeCatalogFilter = ""
+                    imagingCalendar.activeTargetFilter  = ""
                     imagingCalendar.buildCalendar(window.fullMetadataList)
                 }
+                onFileOpenRequested: function(path, name) {
+                    fitsViewer.openFile(path)
+                }
             }
+        }
+    }
+
+    // Separate OS window for viewing individual FITS files
+    FitsImageViewer {
+        id: fitsViewer
+        transientParent: window
+        onFileDeleted: function(path) {
+            fileDetailsView.removeRow(path)
         }
     }
 

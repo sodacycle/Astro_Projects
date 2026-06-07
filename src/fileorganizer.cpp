@@ -89,6 +89,12 @@ void FileOrganizer::findFitsFiles(const QString &dir, QStringList &list)
     }
 }
 
+// - Delete a single file; returns true on success -
+bool FileOrganizer::deleteFile(const QString &filePath)
+{
+    return QFile::remove(filePath);
+}
+
 // - Remove empty directories recursively, avoiding the root working folder -
 void FileOrganizer::removeEmptyRecursive(const QString &folder, const QString &rootPath, int &deletedCount)
 {
@@ -175,6 +181,72 @@ void FileOrganizer::organizeStacked(const QString &dirPath)
     watcher->setFuture(future);
 }
 
+// - Scan for JPG files and return them as table rows via operationCompleted -
+void FileOrganizer::scanJpg(const QString &dirPath)
+{
+    if (m_running) return;
+    m_running = true;
+    m_canceled.storeRelaxed(0);
+    emit runningChanged();
+
+    auto *watcher = new QFutureWatcher<QVariantMap>(this);
+    connect(watcher, &QFutureWatcher<QVariantMap>::finished, this, [this, watcher]() {
+        emit operationCompleted(watcher->result());
+        m_running = false;
+        emit runningChanged();
+        watcher->deleteLater();
+    });
+
+    QFuture<QVariantMap> future = QtConcurrent::run([this, dirPath]() -> QVariantMap {
+        QStringList jpgFiles;
+        findJpgFiles(dirPath, jpgFiles);
+        m_progressTotal   = jpgFiles.size();
+        m_progressCurrent = jpgFiles.size();
+        m_statusText = QString("Found %1 JPG file(s).").arg(jpgFiles.size());
+        emit progressChanged();
+
+        QVariantList rows;
+        for (const QString &path : jpgFiles) {
+            QFileInfo info(path);
+            QVariantMap row;
+            row["Frame Type"]            = QString("JPG");
+            row["File"]                  = info.fileName();
+            row["Path"]                  = path;
+            row["Target"]                = QString("");
+            row["Start Time UTC"]        = info.lastModified().toString("yyyy-MM-dd HH:mm:ss");
+            row["End Time UTC"]          = QString("");
+            row["Exposure Time s"]       = QString("");
+            row["Number of Subs"]        = QString("");
+            row["Total Exposure Time s"] = QString("");
+            row["Telescope"]             = QString("");
+            row["Camera Model"]          = QString("");
+            row["Sensor Temperature C"]  = QString("");
+            row["RA"]                    = QString("");
+            row["DEC"]                   = QString("");
+            row["Latitude"]              = QString("");
+            row["Longitude"]             = QString("");
+            row["Binning"]               = QString("");
+            row["Filter Used"]           = QString("");
+            row["Gain"]                  = QString("");
+            row["Focal Length mm"]       = QString("");
+            row["Aperture mm"]           = QString("");
+            row["Focus Position"]        = QString("");
+            row["Image Type"]            = QString("");
+            row["Stacking Software"]     = QString("");
+            rows.append(row);
+        }
+
+        return {
+            {"operation", QString("scanJpg")},
+            {"jpgFiles",  rows},
+            {"count",     jpgFiles.size()},
+            {"message",   QString("Found %1 JPG file(s).").arg(jpgFiles.size())}
+        };
+    });
+
+    watcher->setFuture(future);
+}
+
 // - Delete JPG files from the selected directory tree -
 void FileOrganizer::removeJpg(const QString &dirPath)
 {
@@ -202,7 +274,7 @@ void FileOrganizer::removeJpg(const QString &dirPath)
         for (int i = 0; i < jpgFiles.size(); i++) {
             if (m_canceled.loadRelaxed()) {
                 m_canceled.storeRelaxed(0);
-                return {{"canceled", true}, {"deletedCount", deletedCount}};
+                return {{"canceled", true}, {"deletedCount", deletedCount}, {"operation", "removeJpg"}};
             }
 
             if (QFile::remove(jpgFiles[i])) deletedCount++;
@@ -217,7 +289,8 @@ void FileOrganizer::removeJpg(const QString &dirPath)
         m_statusText = "JPG removal complete!";
         emit progressChanged();
 
-        return {{"success", true}, {"deletedCount", deletedCount}};
+        return {{"success", true}, {"deletedCount", deletedCount}, {"operation", "removeJpg"},
+                {"message", QString("Deleted %1 JPG file(s).").arg(deletedCount)}};
     });
 
     watcher->setFuture(future);

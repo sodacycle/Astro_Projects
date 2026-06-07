@@ -7,6 +7,7 @@
 
 #include "fitsscanner.h"
 #include "fileorganizer.h"
+#include "fitsimageprovider.h"
 #include "weatherservice.h"
 #include "metadatamodel.h"
 
@@ -107,6 +108,10 @@ int main(int argc, char *argv[])
     CatalogModel            catalogModel;
 
     QQmlApplicationEngine engine;
+
+    // Image provider must be registered before any QML image source references it.
+    // The engine takes ownership of the provider.
+    engine.addImageProvider(QStringLiteral("fitsprovider"), new FitsImageProvider());
 
     QQmlContext *ctx = engine.rootContext();
     ctx->setContextProperty("scanner",                 &scanner);

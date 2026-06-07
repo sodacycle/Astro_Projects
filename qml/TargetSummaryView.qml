@@ -10,6 +10,8 @@ Rectangle {
     radius: 6
 
     property int rowCount: 0
+    signal targetSelected(string targetName)
+
     Connections {
         target: targetSummaryModel
         function onModelReset()   { root.rowCount = targetSummaryModel.rowCount() }
@@ -77,7 +79,10 @@ Rectangle {
                     required property string integrationTime
 
                     width: targetList.width; height: 36
-                    color: index % 2 === 0 ? window.sysPal.alternateBase : "transparent"
+                    color: rowMouse.containsMouse
+                           ? window.sysPal.highlight
+                           : (index % 2 === 0 ? window.sysPal.alternateBase : "transparent")
+                    radius: 3
 
                     Row {
                         anchors.fill: parent
@@ -87,7 +92,8 @@ Rectangle {
                             Text {
                                 anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
                                 text: targetName
-                                color: window.sysPal.windowText; font.pixelSize: 13
+                                color: rowMouse.containsMouse ? window.sysPal.highlightedText : window.sysPal.windowText
+                                font.pixelSize: 13
                                 verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
                             }
                         }
@@ -96,7 +102,8 @@ Rectangle {
                             Text {
                                 anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
                                 text: fitsCount
-                                color: window.sysPal.windowText; font.pixelSize: 13
+                                color: rowMouse.containsMouse ? window.sysPal.highlightedText : window.sysPal.windowText
+                                font.pixelSize: 13
                                 verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
                             }
                         }
@@ -105,7 +112,8 @@ Rectangle {
                             Text {
                                 anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
                                 text: filesWithExposure
-                                color: window.sysPal.windowText; font.pixelSize: 13
+                                color: rowMouse.containsMouse ? window.sysPal.highlightedText : window.sysPal.windowText
+                                font.pixelSize: 13
                                 verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
                             }
                         }
@@ -114,10 +122,22 @@ Rectangle {
                             Text {
                                 anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
                                 text: integrationTime
-                                color: window.sysPal.windowText; font.pixelSize: 13
+                                color: rowMouse.containsMouse ? window.sysPal.highlightedText : window.sysPal.windowText
+                                font.pixelSize: 13
                                 verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
                             }
                         }
+                    }
+
+                    MouseArea {
+                        id: rowMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.targetSelected(targetName)
+                        ToolTip.visible: containsMouse
+                        ToolTip.delay: 500
+                        ToolTip.text: "Filter calendar and file list to show only '" + targetName + "'"
                     }
                 }
             }

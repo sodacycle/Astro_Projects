@@ -16,6 +16,7 @@ Rectangle {
     property var dayNames: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
     property var calendarDays: []
     property string activeCatalogFilter: ""
+    property string activeTargetFilter: ""
 
     property real cellW: Math.max(1, (width - 32 - 12) / 7)
     property int  gridRows: calendarDays.length > 0 ? Math.ceil(calendarDays.length / 7) : 0
@@ -51,7 +52,8 @@ Rectangle {
             var dp = it["Start Time UTC"] ? it["Start Time UTC"].toString().split(" ")[0] : ""
             var tg = it["Target"]
             var ex = parseFloat(it["Total Exposure Time s"] || 0)
-            if (dp && tg && ex > 0 && matchesCatalog(tg, activeCatalogFilter)) {
+            if (dp && tg && ex > 0 && matchesCatalog(tg, activeCatalogFilter)
+                    && (activeTargetFilter === "" || tg === activeTargetFilter)) {
                 if (!sbd[dp]) sbd[dp] = {}
                 sbd[dp][tg] = (sbd[dp][tg] || 0) + ex
             }
@@ -119,6 +121,9 @@ Rectangle {
                 id: tempBtn; text: weatherService.celsius ? "°C / °F" : "°F / °C"
                 font.pixelSize: 11; implicitWidth: 80; implicitHeight: 28
                 anchors.verticalCenter: parent.verticalCenter
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Toggle weather temperature display\nbetween Celsius and Fahrenheit."
                 onClicked: weatherService.toggleUnit()
             }
         }
@@ -126,6 +131,9 @@ Rectangle {
             width: parent.width; spacing: 0
             Button {
                 text: "<"; implicitWidth: 36; implicitHeight: 28
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Go to the previous month."
                 onClicked: {
                     if (--currentMonth < 0) { currentMonth = 11; currentYear-- }
                     weatherService.fetchWeather(currentYear, currentMonth + 1)
@@ -141,6 +149,9 @@ Rectangle {
             }
             Button {
                 text: ">"; implicitWidth: 36; implicitHeight: 28
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Go to the next month."
                 onClicked: {
                     if (++currentMonth > 11) { currentMonth = 0; currentYear++ }
                     weatherService.fetchWeather(currentYear, currentMonth + 1)

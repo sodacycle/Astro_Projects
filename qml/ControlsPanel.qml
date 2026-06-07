@@ -10,6 +10,9 @@ Rectangle {
     border.width: 1
     radius: 6
 
+    signal jpgScanned(var rows)
+    signal jpgCleared()
+
     function setStatus(msg) { statusText.text = msg }
 
     Column {
@@ -36,6 +39,9 @@ Rectangle {
             spacing: 8
             Button {
                 text: "Select Directory"
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Choose the folder containing your FITS files.\nSubdirectories are scanned automatically."
                 onClicked: {
                     var dir = scanner.selectDirectory()
                     if (dir !== "") {
@@ -47,6 +53,9 @@ Rectangle {
             Button {
                 text: "Scan FIT"
                 enabled: window.selectedDirectory !== "" && !scanner.running
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Scan the selected directory for FITS files\nand build metadata summaries."
                 onClicked: {
                     statusText.text = ""
                     scanner.scanDirectory(window.selectedDirectory)
@@ -55,10 +64,16 @@ Rectangle {
             Button {
                 text: "Stop"
                 enabled: scanner.running || organizer.running
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Cancel the current scan or file operation."
                 onClicked: { scanner.cancel(); organizer.cancel() }
             }
             Button {
                 text: advancedPanel.visible ? "Hide Advanced Tools" : "Advanced Tools"
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Show or hide file organisation tools such as\nSiril prep, stacked file sorting, and cleanup."
                 onClicked: advancedPanel.visible = !advancedPanel.visible
             }
         }
@@ -87,6 +102,8 @@ Rectangle {
             visible:   false
             directory: window.selectedDirectory
             scanReady: window.scanCompleted
+            onJpgScanned: function(rows) { root.jpgScanned(rows) }
+            onJpgCleared: root.jpgCleared()
         }
     }
 }

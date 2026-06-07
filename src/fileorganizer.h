@@ -23,9 +23,11 @@ public:
     QString statusText() const;
 
     Q_INVOKABLE void organizeStacked(const QString &dirPath);
+    Q_INVOKABLE void scanJpg(const QString &dirPath);
     Q_INVOKABLE void removeJpg(const QString &dirPath);
     Q_INVOKABLE void sirilPrep(const QString &dirPath);
     Q_INVOKABLE void removeEmptyFolders(const QString &dirPath);
+    Q_INVOKABLE bool deleteFile(const QString &filePath);
     Q_INVOKABLE void cancel();
 
 signals:

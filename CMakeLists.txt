@@ -13,11 +13,12 @@ find_package(Qt6 REQUIRED COMPONENTS Core Widgets Quick QuickControls2 Network C
 # On Linux/macOS this flag is ignored.
 qt_add_executable(AstroDataViewer WIN32
     src/main.cpp
-    src/fitsparser.h     src/fitsparser.cpp
-    src/fitsscanner.h    src/fitsscanner.cpp
-    src/fileorganizer.h  src/fileorganizer.cpp
-    src/weatherservice.h src/weatherservice.cpp
-    src/metadatamodel.h  src/metadatamodel.cpp
+    src/fitsparser.h       src/fitsparser.cpp
+    src/fitsscanner.h      src/fitsscanner.cpp
+    src/fileorganizer.h    src/fileorganizer.cpp
+    src/fitsimageprovider.h src/fitsimageprovider.cpp
+    src/weatherservice.h   src/weatherservice.cpp
+    src/metadatamodel.h    src/metadatamodel.cpp
 )
 
 qt_add_qml_module(AstroDataViewer
@@ -32,6 +33,7 @@ qt_add_qml_module(AstroDataViewer
         qml/ImagingCalendar.qml
         qml/CalibrationSummaryView.qml
         qml/FileDetailsView.qml
+        qml/FitsImageViewer.qml
         qml/components/ProgressIndicator.qml
 )
 
