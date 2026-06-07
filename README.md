@@ -66,7 +66,7 @@ FITS-Metadata-Viewer/
 ├── resources/             Application assets
 ├── appstream/             AppStream metadata (for software centres)
 ├── CMakeLists.txt         CMake build definition
-├── rebuild.sh             Quick dev build script
+├── build.sh             Quick dev build script
 ├── build-appimage.sh      Portable AppImage packaging script
 ├── fitsmetadataviewer.desktop   Desktop entry file
 ├── fitsmetadataviewer.svg       Application icon
@@ -81,7 +81,7 @@ There are two ways to build FITS Metadata Viewer depending on your goal.
 
 ---
 
-### Option 1 — `rebuild.sh` (Development Build)
+### Option 1 — `build.sh` (Development Build)
 
 **Use this when:** you are developing, testing, or just want to run the app
 on your own machine where Qt 6 is already installed.
@@ -110,7 +110,7 @@ sudo pacman -S qt6-base qt6-declarative qt6-tools cmake gcc
 
 ```bash
 # From the project root
-bash rebuild.sh
+bash build.sh
 
 # Then run
 ./build/AstroDataViewer
@@ -155,7 +155,7 @@ An internet connection is required on the first run only.
 # Full build (compile + package)
 bash build-appimage.sh
 
-# If you have already compiled with rebuild.sh or a previous AppImage run,
+# If you have already compiled with build.sh or a previous AppImage run,
 # skip the compile step and go straight to packaging:
 bash build-appimage.sh --skip-build
 ```
@@ -232,7 +232,7 @@ from a Command Prompt or PowerShell.
 
 ## Quick Comparison
 
-| | `rebuild.sh` (Linux) | `build-appimage.sh` (Linux) | `build-windows.ps1` (Windows) |
+| | `build.sh` (Linux) | `build-appimage.sh` (Linux) | `build-windows.ps1` (Windows) |
 |---|---|---|---|
 | **Purpose** | Dev / personal use | Portable Linux bundle | Windows build |
 | **Output** | `build/AstroDataViewer` | `*.AppImage` (~43 MB) | `dist/` folder |
