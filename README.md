@@ -8,12 +8,51 @@ A desktop application for scanning and inspecting FITS file metadata, built with
 
 - Recursive directory scanning for `.fit` / `.fits` files
 - FITS header metadata extraction — no Python or external tools required
+- **FITS image viewer** — display and inspect individual FITS images with zoom and pan controls
 - Target grouping with total integration time aggregation
 - Calibration frame summaries (darks, flats, bias) grouped by settings
 - Imaging calendar with moon phase and historical weather data
 - Catalog breakdown by Messier, NGC, IC, Sharpless, Barnard, and more
-- File organiser tools — sort stacked files, remove JPGs, prepare for Siril
+- Interactive metadata table with extensive columns (telescope, camera, sensor temp, RA/DEC, focal length, gain, etc.)
+- Smart filtering by target name, catalog, and observation date
+- File organiser tools:
+  - Sort and organize stacked files into dedicated folders
+  - Scan for JPG files and optionally delete them
+  - Prepare directory structure for Siril preprocessing
+  - Remove empty folders
+- Weather integration — fetches historical weather data based on observation coordinates
 - Native system theme — automatically matches your KDE/GTK desktop
+- Cross-platform support (Linux AppImage and Windows)
+
+---
+
+## Features in Detail
+
+### FITS Image Viewer
+
+Click on any file in the metadata table to open it in a dedicated dark-themed viewer window. Features include:
+
+- **Zoom controls** — zoom in/out, fit-to-window, and 1:1 pixel-perfect viewing
+- **Pan and scroll** — use mouse to drag and navigate large images
+- **Safe file handling** — gracefully handles compressed FITS, missing pixel data, and large files (512 MB safety limit)
+- **File deletion** — delete the viewed file directly from the viewer window
+
+### Metadata and Filtering
+
+The comprehensive metadata table displays detailed information for each FITS file:
+
+- **Observation data**: Target name, integration time, number of subs, date/time
+- **Telescope & Camera**: Telescope, camera model, sensor temperature
+- **Coordinates**: RA, DEC, observation latitude/longitude
+- **Camera settings**: Binning, gain, focal length, aperture, focus position
+- **Image properties**: Filter, image type, frame type (light/dark/flat/bias)
+- **Processing**: Stacking software used
+
+**Smart filtering** lets you drill down into your data:
+- Filter by **target name** to see all exposures of a single object
+- Filter by **catalog** (Messier, NGC, IC, etc.) to explore specific regions
+- Click **calendar dates** to see observations from specific nights
+- **JPG integration** — scan for and manage preview images alongside FITS files
 
 ---
 
@@ -233,15 +272,27 @@ available backend automatically.
 
 ---
 
+## Advanced File Organization Tools
+
+The application includes powerful batch file operations accessible from the **Advanced Tools** panel:
+
+| Tool | Purpose | Use Case |
+|------|---------|----------|
+| **Organize Stacked Files** | Automatically detects and moves stacked FITS files into a `Stacked/` subfolder | Keep raw and processed files separate |
+| **Scan for JPG Files** | Recursively finds all `.jpg` files in the selected directory | Identify and manage preview images |
+| **Delete JPG Files** | Permanently remove JPG files after review (with confirmation prompt) | Clean up preview images to free space |
+| **Siril Prep** | Renames and organizes FITS files into the folder structure expected by Siril | Prepare data for preprocessing in Siril |
+| **Remove Empty Folders** | Cleans up empty directories left after file operations | Tidy up directory tree |
+
+---
+
 ## Notes
 
-- The application uses `QFileDialog` for directory selection, which requires
-  Qt 6 Widgets. This provides a native KDE/GTK file picker on supported
-  desktops.
-- Weather data is fetched from the Open-Meteo API using observation coordinates
-  extracted from your FITS headers. No API key is required.
-- Settings (temperature unit preference, last-used location) are stored via
-  `QSettings` in the standard platform location
-  (`~/.config/FITSMetadataViewer/`).
-- This project was rewritten from an Electron-based FITS metadata viewer into
-  a native Qt/QML desktop application.
+- **Extensive metadata extraction** — the application parses 21+ FITS header fields including telescope, camera, focal length, aperture, gain, sensor temperature, and coordinates.
+- **Weather integration** — weather data is fetched from the Open-Meteo API using observation coordinates extracted from your FITS headers. No API key is required. Historical weather is displayed with weather code emojis in the imaging calendar.
+- **Moon phase calculation** — moon phase information is automatically calculated and displayed for each observation date.
+- **Native file picker** — the application uses `QFileDialog` for directory selection, providing native KDE/GTK file pickers on supported desktops.
+- **Persistent settings** — temperature unit preference, last-used location, and other settings are stored via `QSettings` in the standard platform location (`~/.config/FITSMetadataViewer/` on Linux).
+- **Responsive UI** — all batch operations (scanning, organizing, deleting) run asynchronously with progress feedback and status updates.
+- **Safe deletion** — file deletion operations require explicit confirmation before proceeding.
+- **This project** was rewritten from an Electron-based FITS metadata viewer into a native Qt/QML desktop application, improving performance and reducing resource usage.
