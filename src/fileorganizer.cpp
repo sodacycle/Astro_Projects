@@ -10,7 +10,7 @@
 #include <QtConcurrent>
 
 static const QSet<QString> PROCESS_SKIP_DIRS = {
-    "stacked", "process", "darks", "flats", "bias", "lights"
+    "stacked", "process", "darks", "flats", "bias", "lights", "rejected"
 };
 
 // - File scanning and organization utilities for stacked FITS detection and cleanup -
@@ -45,13 +45,16 @@ void FileOrganizer::findStackedFiles(const QString &dir, QStringList &list)
         if (!info.fileName().contains(QRegularExpression("\\.(fit|fits)$", QRegularExpression::CaseInsensitiveOption)))
             continue;
 
-        bool isStacked = false;
         auto header = FitsParser::parseHeader(info.absoluteFilePath());
-        isStacked = FitsScanner::metadataIndicatesStacking(header);
+        auto [frameType, method] = FitsScanner::detectFrameType(header, info.fileName());
 
-        if (!isStacked) {
-            isStacked = info.fileName().startsWith("Stacked_") ||
-                        info.fileName().startsWith("DSO_Stacked_");
+        bool isStacked = false;
+        if (frameType == "LIGHT") {
+            isStacked = FitsScanner::metadataIndicatesStacking(header);
+            if (!isStacked) {
+                isStacked = info.fileName().startsWith("Stacked_") ||
+                            info.fileName().startsWith("DSO_Stacked_");
+            }
         }
 
         if (isStacked) list.append(info.absoluteFilePath());
@@ -95,6 +98,39 @@ bool FileOrganizer::deleteFile(const QString &filePath)
     return QFile::remove(filePath);
 }
 
+// - Move a file into a Rejected/ subfolder beside it; returns new path or empty on failure -
+QString FileOrganizer::rejectFile(const QString &filePath)
+{
+    const QFileInfo info(filePath);
+    if (!info.exists()) return {};
+
+    // No-op if the file is already inside a Rejected folder
+    if (info.dir().dirName().compare("Rejected", Qt::CaseInsensitive) == 0)
+        return filePath;
+
+    // Place Rejected/ in the parent of the file's current directory so that
+    // e.g. .../Object/lights/frame.fits → .../Object/Rejected/frame.fits
+    QDir parentDir = info.dir();
+    parentDir.cdUp();
+    const QString rejectedDir = parentDir.absolutePath() + "/rejected";
+    if (!QDir().mkpath(rejectedDir)) return {};
+
+    QString destPath = rejectedDir + "/" + info.fileName();
+
+    // Resolve name collision by appending _1, _2, ...
+    if (QFile::exists(destPath)) {
+        const QString base   = info.completeBaseName();
+        const QString suffix = info.suffix();
+        int n = 1;
+        do {
+            destPath = QString("%1/%2_%3.%4").arg(rejectedDir, base, QString::number(n), suffix);
+            ++n;
+        } while (QFile::exists(destPath) && n < 1000);
+    }
+
+    return QFile::rename(filePath, destPath) ? destPath : QString{};
+}
+
 // - Remove empty directories recursively, avoiding the root working folder -
 void FileOrganizer::removeEmptyRecursive(const QString &folder, const QString &rootPath, int &deletedCount)
 {
@@ -110,6 +146,7 @@ void FileOrganizer::removeEmptyRecursive(const QString &folder, const QString &r
     if (dir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries).isEmpty() && folder != rootPath) {
         if (dir.rmdir(folder)) {
             deletedCount++;
+            emit fileProcessed("Removed folder: " + folder);
             m_statusText = QString("Removed %1 empty folders...").arg(deletedCount);
             emit progressChanged();
         }
@@ -159,6 +196,7 @@ void FileOrganizer::organizeStacked(const QString &dirPath)
 
             if (QFile::rename(filePath, destPath)) {
                 movedFiles.append(filePath);
+                emit fileProcessed(filePath + " → " + destPath);
             }
 
             m_progressCurrent = i;
@@ -277,7 +315,10 @@ void FileOrganizer::removeJpg(const QString &dirPath)
                 return {{"canceled", true}, {"deletedCount", deletedCount}, {"operation", "removeJpg"}};
             }
 
-            if (QFile::remove(jpgFiles[i])) deletedCount++;
+            if (QFile::remove(jpgFiles[i])) {
+                deletedCount++;
+                emit fileProcessed(jpgFiles[i] + " - Deleted");
+            }
 
             if (i % 10 == 0) {
                 m_progressCurrent = i;
@@ -346,6 +387,7 @@ void FileOrganizer::sirilPrep(const QString &dirPath)
 
             if (QFile::rename(filePath, destPath)) {
                 movedCount++;
+                emit fileProcessed(QString("[%1] %2 → %3").arg(frameType, filePath, destPath));
                 logLines.append(QString("[%1] %2 | %3 | %4")
                     .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
                     .arg(frameType, -5)

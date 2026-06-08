@@ -3,8 +3,11 @@ import QtQuick.Controls
 
 Rectangle {
     id: root
+    // Exact content width: column cells + 16 px left margin + 16 px right margin.
+    // Do NOT let the parent stretch this further; the table ends at Total Integration Time.
+    width:  colW[0] + colW[1] + colW[2] + 32
     height: col.height + 32
-    color:        window.sysPal.base
+    color:  window.sysPal.base
     border.color: window.sysPal.mid
     border.width: 1
     radius: 6
@@ -19,8 +22,8 @@ Rectangle {
         function onRowsRemoved()  { root.rowCount = targetSummaryModel.rowCount() }
     }
 
-    property var colW: [220, 110, 160, 200]
-    property var colL: ["Target","FITS Count","Files With Exposure","Total Integration Time"]
+    property var colW: [220, 110, 200]
+    property var colL: ["Target","FITS Count","Total Integration Time"]
 
     Column {
         id: col
@@ -75,7 +78,6 @@ Rectangle {
                     required property int    index
                     required property string targetName
                     required property int    fitsCount
-                    required property int    filesWithExposure
                     required property string integrationTime
 
                     width: targetList.width; height: 36
@@ -109,16 +111,6 @@ Rectangle {
                         }
                         Rectangle {
                             width: root.colW[2]; height: parent.height; color: "transparent"
-                            Text {
-                                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
-                                text: filesWithExposure
-                                color: rowMouse.containsMouse ? window.sysPal.highlightedText : window.sysPal.windowText
-                                font.pixelSize: 13
-                                verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
-                            }
-                        }
-                        Rectangle {
-                            width: root.colW[3]; height: parent.height; color: "transparent"
                             Text {
                                 anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
                                 text: integrationTime

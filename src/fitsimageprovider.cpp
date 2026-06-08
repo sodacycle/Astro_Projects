@@ -11,82 +11,131 @@ FitsImageProvider::FitsImageProvider()
 {}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GHS Arcsinh base transform  (§5.2.2 of the GHS specification)
-//   T(x)  = arcsinh(D·x) = ln( D·x + √(D²x²+1) )
-// All intermediate maths use double precision as required by GHS §5.3.
+// Stretch pipeline — equivalent to astropy's:
+//   PercentileInterval(99.0) + AsinhStretch(a=0.1)
+//
+// Step 1 – PercentileInterval(99.0):
+//   vmin = 0.5th percentile, vmax = 99.5th percentile of the pixel sample.
+//   Clips outliers (hot pixels, cosmic rays) without destroying the bulk
+//   of the dynamic range.
+//
+// Step 2 – normalize to [0, 1]:
+//   x = clip((pixel − vmin) / (vmax − vmin), 0, 1)
+//
+// Step 3 – AsinhStretch(a = 0.1):
+//   y = arcsinh(x / a) / arcsinh(1 / a)
+//     = arcsinh(10·x) / arcsinh(10)
+//   Maps [0,1]→[0,1].  The 'a' parameter sets the transition between the
+//   linear (noise-suppressed) and logarithmic (faint-detail) regimes:
+//   smaller a → more aggressive stretch.  a=0.1 matches astropy's default.
 // ─────────────────────────────────────────────────────────────────────────────
 
-static double ghsT(double x, double D)
+// x must already be normalised to [0, 1].
+// a controls the knee: smaller a → more aggressive stretch of faint signal.
+static inline double asinhStretch(double x, double a)
 {
-    const double Dx = D * x;
-    return std::log(Dx + std::sqrt(Dx * Dx + 1.0));
-}
-
-// Full normalised GHS transformation, simplified to LP=0, HP=1  (§5.2.3).
-// SP is the Symmetry Point; at x=SP the output is tuned to 0.20 (sky background
-// lands in a dark-but-visible band).
-static double ghsNormT(double x, double SP, double D)
-{
-    if (x <= 0.0) return 0.0;
-    if (x >= 1.0) return 1.0;
-
-    const double tSP   = ghsT(SP,       D);
-    const double t1mSP = ghsT(1.0 - SP, D);
-    const double norm  = tSP + t1mSP;
-    if (norm < 1e-15) return x;
-
-    const double result = (x < SP)
-        ? (tSP - ghsT(SP - x, D)) / norm
-        : (tSP + ghsT(x - SP,  D)) / norm;
-
-    return std::max(0.0, std::min(1.0, result));
-}
-
-// Binary search for D such that ghsNormT(SP, SP, D) == targetOutput.
-static double findD(double SP, double targetOutput = 0.20)
-{
-    if (SP <= 0.0 || SP >= 1.0) return 1.0;
-
-    const auto ratio = [SP](double D) -> double {
-        if (D < 1e-12) return SP;
-        const double t  = ghsT(SP,       D);
-        const double t2 = ghsT(1.0 - SP, D);
-        const double n  = t + t2;
-        return (n > 1e-15) ? t / n : SP;
-    };
-
-    if (SP >= targetOutput) return 1.0;
-
-    double lo = 1e-9, hi = 1e6;
-    for (int i = 0; i < 64; ++i) {
-        const double mid = std::sqrt(lo * hi);
-        if (ratio(mid) < targetOutput) lo = mid;
-        else                           hi = mid;
-    }
-    return (lo + hi) * 0.5;
+    return std::asinh(x / a) / std::asinh(1.0 / a);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Per-channel stretch parameters
+// Per-channel stretch parameters  (vmin / vmax from the percentile interval)
 // ─────────────────────────────────────────────────────────────────────────────
-struct StretchParams { double c0, c1, SP, D; };
+struct StretchParams { double vmin, vmax; };
 
-static StretchParams computeParams(const std::vector<float>& sorted)
+// Compute vmin/vmax from a sorted pixel sample.
+// p is the PercentileInterval value (e.g. 99.0 → clips bottom/top 0.5% each).
+static StretchParams computeParams(const std::vector<float>& sorted, double p = 99.0)
 {
     const int ns = static_cast<int>(sorted.size());
-    if (ns == 0) return {0.0, 1.0, 0.05, 5.0};
+    if (ns == 0) return {0.0, 1.0};
 
-    const double c0 = sorted[std::max(0, ns / 1000)];
-    const double c1 = sorted[std::min(ns - 1, (int)((ns - 1) * 0.999))];
+    const double halfTail = (100.0 - p) * 0.005;   // fraction clipped on each side
+    const int lo = static_cast<int>((ns - 1) * halfTail);
+    const int hi = static_cast<int>((ns - 1) * (1.0 - halfTail));
 
-    if (c1 - c0 < 1e-6) return {c0, c0 + 1.0, 0.05, 5.0};
+    const double vmin = sorted[lo];
+    const double vmax = sorted[hi];
 
-    const double bg = sorted[ns / 2];
+    if (vmax - vmin < 1e-6) return {vmin, vmin + 1.0};
+    return {vmin, vmax};
+}
 
-    double SP = (bg - c0) / (c1 - c0);
-    SP = std::max(0.005, std::min(0.495, SP));
+// ─────────────────────────────────────────────────────────────────────────────
+// Separable O(W×H) box blur applied to the final QImage.
+// Two 1-D sliding-window passes (horizontal then vertical) give a Gaussian-like
+// result; the window is (2r+1)² pixels wide.  r=0 is a no-op.
+// ─────────────────────────────────────────────────────────────────────────────
+static void applyBoxBlur(QImage& img, int r)
+{
+    if (r <= 0 || img.isNull()) return;
+    const int W = img.width(), H = img.height();
+    const bool isRGB = (img.format() == QImage::Format_RGB32);
 
-    return {c0, c1, SP, findD(SP, 0.20)};
+    if (isRGB) {
+        // ── Horizontal pass ──────────────────────────────────────────────────
+        std::vector<int> rB(W), gB(W), bB(W), rO(W), gO(W), bO(W);
+        for (int y = 0; y < H; ++y) {
+            QRgb* row = reinterpret_cast<QRgb*>(img.scanLine(y));
+            for (int x = 0; x < W; ++x) {
+                rB[x] = qRed(row[x]); gB[x] = qGreen(row[x]); bB[x] = qBlue(row[x]);
+            }
+            int sR = 0, sG = 0, sB = 0;
+            for (int k = 0; k <= std::min(r, W-1); ++k) { sR += rB[k]; sG += gB[k]; sB += bB[k]; }
+            for (int x = 0; x < W; ++x) {
+                const int w = std::min(x+r+1, W) - std::max(0, x-r);
+                rO[x] = sR/w; gO[x] = sG/w; bO[x] = sB/w;
+                if (x+r+1 < W) { sR += rB[x+r+1]; sG += gB[x+r+1]; sB += bB[x+r+1]; }
+                if (x-r   >= 0) { sR -= rB[x-r];   sG -= gB[x-r];   sB -= bB[x-r]; }
+            }
+            for (int x = 0; x < W; ++x) row[x] = qRgb(rO[x], gO[x], bO[x]);
+        }
+        // ── Vertical pass ────────────────────────────────────────────────────
+        std::vector<int> rC(H), gC(H), bC(H), rCO(H), gCO(H), bCO(H);
+        for (int x = 0; x < W; ++x) {
+            for (int y = 0; y < H; ++y) {
+                const QRgb p = reinterpret_cast<const QRgb*>(img.constScanLine(y))[x];
+                rC[y] = qRed(p); gC[y] = qGreen(p); bC[y] = qBlue(p);
+            }
+            int sR = 0, sG = 0, sB = 0;
+            for (int k = 0; k <= std::min(r, H-1); ++k) { sR += rC[k]; sG += gC[k]; sB += bC[k]; }
+            for (int y = 0; y < H; ++y) {
+                const int w = std::min(y+r+1, H) - std::max(0, y-r);
+                rCO[y] = sR/w; gCO[y] = sG/w; bCO[y] = sB/w;
+                if (y+r+1 < H) { sR += rC[y+r+1]; sG += gC[y+r+1]; sB += bC[y+r+1]; }
+                if (y-r   >= 0) { sR -= rC[y-r];   sG -= gC[y-r];   sB -= bC[y-r]; }
+            }
+            for (int y = 0; y < H; ++y)
+                reinterpret_cast<QRgb*>(img.scanLine(y))[x] = qRgb(rCO[y], gCO[y], bCO[y]);
+        }
+    } else {
+        // ── Grayscale horizontal ─────────────────────────────────────────────
+        std::vector<int> buf(W), out(W);
+        for (int y = 0; y < H; ++y) {
+            uchar* row = img.scanLine(y);
+            for (int x = 0; x < W; ++x) buf[x] = row[x];
+            int s = 0;
+            for (int k = 0; k <= std::min(r, W-1); ++k) s += buf[k];
+            for (int x = 0; x < W; ++x) {
+                out[x] = s / (std::min(x+r+1, W) - std::max(0, x-r));
+                if (x+r+1 < W) s += buf[x+r+1];
+                if (x-r   >= 0) s -= buf[x-r];
+            }
+            for (int x = 0; x < W; ++x) row[x] = static_cast<uchar>(out[x]);
+        }
+        // ── Grayscale vertical ───────────────────────────────────────────────
+        std::vector<int> col(H), colO(H);
+        for (int x = 0; x < W; ++x) {
+            for (int y = 0; y < H; ++y) col[y] = img.constScanLine(y)[x];
+            int s = 0;
+            for (int k = 0; k <= std::min(r, H-1); ++k) s += col[k];
+            for (int y = 0; y < H; ++y) {
+                colO[y] = s / (std::min(y+r+1, H) - std::max(0, y-r));
+                if (y+r+1 < H) s += col[y+r+1];
+                if (y-r   >= 0) s -= col[y-r];
+            }
+            for (int y = 0; y < H; ++y) img.scanLine(y)[x] = static_cast<uchar>(colO[y]);
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +143,24 @@ static StretchParams computeParams(const std::vector<float>& sorted)
 // ─────────────────────────────────────────────────────────────────────────────
 QImage FitsImageProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
 {
-    const QString path = QUrl::fromPercentEncoding(id.toUtf8());
+    // Split "encodedPath?a=0.1&p=99.0" into path and optional stretch params.
+    const int qmark = id.indexOf('?');
+    const QString path = QUrl::fromPercentEncoding(
+        (qmark >= 0 ? id.left(qmark) : id).toUtf8());
+
+    double stretchA = 0.1, stretchP = 99.0;
+    int    denoiseR = 0;
+    if (qmark >= 0) {
+        for (const auto& part : id.mid(qmark + 1).split('&')) {
+            const int eq = part.indexOf('=');
+            if (eq < 0) continue;
+            const double val = part.mid(eq + 1).toDouble();
+            const QString key = part.left(eq);
+            if      (key == "a") stretchA = qBound(0.001, val, 10.0);
+            else if (key == "p") stretchP = qBound(50.0,  val, 99.99);
+            else if (key == "d") denoiseR = qBound(0, static_cast<int>(val), 10);
+        }
+    }
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
@@ -207,14 +273,14 @@ QImage FitsImageProvider::requestImage(const QString &id, QSize *size, const QSi
         return s;
     };
 
-    // ── Apply GHS Arcsinh stretch to one plane → 8-bit output ───────────────
+    // ── Apply PercentileInterval+AsinhStretch to one plane → 8-bit output ────
     const auto applyStretch = [&](qint64 off, const StretchParams& sp) -> std::vector<uchar> {
-        const double range = sp.c1 - sp.c0;
+        const double range = sp.vmax - sp.vmin;
         std::vector<uchar> out(ppPlane);
         for (qint64 i = 0; i < ppPlane; ++i) {
             const double xn = std::max(0.0, std::min(1.0,
-                              (static_cast<double>(px(off + i)) - sp.c0) / range));
-            out[i] = static_cast<uchar>(ghsNormT(xn, sp.SP, sp.D) * 255.0 + 0.5);
+                              (static_cast<double>(px(off + i)) - sp.vmin) / range));
+            out[i] = static_cast<uchar>(asinhStretch(xn, stretchA) * 255.0 + 0.5);
         }
         return out;
     };
@@ -298,11 +364,11 @@ QImage FitsImageProvider::requestImage(const QString &id, QSize *size, const QSi
         std::sort(gSamp.begin(), gSamp.end());
         std::sort(bSamp.begin(), bSamp.end());
 
-        const auto pR = computeParams(rSamp);
-        const auto pG = computeParams(gSamp);
-        const auto pB = computeParams(bSamp);
+        const auto pR = computeParams(rSamp, stretchP);
+        const auto pG = computeParams(gSamp, stretchP);
+        const auto pB = computeParams(bSamp, stretchP);
 
-        // Bilinear demosaicing + per-channel GHS stretch in a single pass.
+        // Bilinear demosaicing + per-channel astropy stretch in a single pass.
         //
         // For an R pixel at (x, y):
         //   its 4 orthogonal neighbours are all G  → G interpolated from those
@@ -339,25 +405,25 @@ QImage FitsImageProvider::requestImage(const QString &id, QSize *size, const QSi
                     else         { b = hv; r = vv; }
                 }
 
-                // Per-channel GHS Arcsinh stretch
-                const double rn = std::max(0.0, std::min(1.0, (r - pR.c0) / (pR.c1 - pR.c0)));
-                const double gn = std::max(0.0, std::min(1.0, (g - pG.c0) / (pG.c1 - pG.c0)));
-                const double bn = std::max(0.0, std::min(1.0, (b - pB.c0) / (pB.c1 - pB.c0)));
+                // Per-channel PercentileInterval + AsinhStretch
+                const double rn = std::max(0.0, std::min(1.0, (r - pR.vmin) / (pR.vmax - pR.vmin)));
+                const double gn = std::max(0.0, std::min(1.0, (g - pG.vmin) / (pG.vmax - pG.vmin)));
+                const double bn = std::max(0.0, std::min(1.0, (b - pB.vmin) / (pB.vmax - pB.vmin)));
 
                 line[x] = qRgb(
-                    static_cast<int>(ghsNormT(rn, pR.SP, pR.D) * 255.0 + 0.5),
-                    static_cast<int>(ghsNormT(gn, pG.SP, pG.D) * 255.0 + 0.5),
-                    static_cast<int>(ghsNormT(bn, pB.SP, pB.D) * 255.0 + 0.5)
+                    static_cast<int>(asinhStretch(rn, stretchA) * 255.0 + 0.5),
+                    static_cast<int>(asinhStretch(gn, stretchA) * 255.0 + 0.5),
+                    static_cast<int>(asinhStretch(bn, stretchA) * 255.0 + 0.5)
                 );
             }
         }
 
     // ── Branch 2: 3-plane colour FITS ────────────────────────────────────────
     } else if (planes >= 3) {
-        // Per-channel (unlinked) GHS stretch.
-        const auto p0 = computeParams(samplePlane(0));
-        const auto p1 = computeParams(samplePlane(ppPlane));
-        const auto p2 = computeParams(samplePlane(ppPlane * 2));
+        // Per-channel (unlinked) stretch.
+        const auto p0 = computeParams(samplePlane(0),           stretchP);
+        const auto p1 = computeParams(samplePlane(ppPlane),     stretchP);
+        const auto p2 = computeParams(samplePlane(ppPlane * 2), stretchP);
 
         const auto R = applyStretch(0,           p0);
         const auto G = applyStretch(ppPlane,     p1);
@@ -374,7 +440,7 @@ QImage FitsImageProvider::requestImage(const QString &id, QSize *size, const QSi
 
     // ── Branch 3: single-plane monochrome ────────────────────────────────────
     } else {
-        const auto sp = computeParams(samplePlane(0));
+        const auto sp = computeParams(samplePlane(0), stretchP);
         const auto L  = applyStretch(0, sp);
 
         image = QImage(W, H, QImage::Format_Grayscale8);
@@ -383,6 +449,8 @@ QImage FitsImageProvider::requestImage(const QString &id, QSize *size, const QSi
             std::memcpy(line, L.data() + y * W, W);
         }
     }
+
+    applyBoxBlur(image, denoiseR);
 
     if (size)
         *size = image.size();

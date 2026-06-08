@@ -3,7 +3,8 @@ import QtQuick.Controls
 
 Rectangle {
     id: root
-    height: col.height + 32
+    height: rowCount > 0 ? col.height + 32 : 0
+    visible: rowCount > 0
     color:        window.sysPal.base
     border.color: window.sysPal.mid
     border.width: 1
@@ -50,52 +51,100 @@ Rectangle {
                 }
             }
         }
-        ListView {
+        Item {
             width: parent.width
-            height: root.rowCount > 0 ? Math.min(200, root.rowCount * 36) : 0
+            height: root.rowCount > 0 ? Math.min(300, root.rowCount * 36 + 2) : 0
             visible: root.rowCount > 0
-            clip: true; model: calibrationSummaryModel
-            interactive: false
+
+        ListView {
+            id: calList
+            anchors.fill: parent
+            clip: true
+            model: calibrationSummaryModel
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
             delegate: Rectangle {
-                width: parent.width; height: 36
+                required property int    index
+                required property string frameType
+                required property var    exposureTime
+                required property string gain
+                required property string binning
+                required property string sensorTemp
+                required property var    count
+                required property string mostRecent
+
+                width: ListView.view.width; height: 36
                 color: index % 2 === 0 ? window.sysPal.alternateBase : "transparent"
+
                 Row {
                     anchors.fill: parent
-                    Repeater {
-                        model: [
-                            model.frameType,
-                            model.exposureTime !== undefined ? Number(model.exposureTime).toFixed(1)+"s" : "",
-                            model.gain, model.binning, model.sensorTemp,
-                            model.count !== undefined ? model.count : "",
-                            model.mostRecent
-                        ]
-                        Rectangle {
-                            width: root.colW[index]; height: 36; color: "transparent"
-                            Text {
-                                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
-                                text: modelData !== undefined ? modelData : ""
-                                color: {
-                                    if (index === 0) {
-                                        var ft = model.frameType || ""
-                                        if (ft === "DARK") return "#6ea8fe"
-                                        if (ft === "FLAT") return "#a3cfbb"
-                                        if (ft === "BIAS") return "#e2a069"
-                                    }
-                                    return window.sysPal.windowText
-                                }
-                                font.pixelSize: 13
-                                verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
-                            }
+
+                    Rectangle {
+                        width: root.colW[0]; height: 36; color: "transparent"
+                        Text {
+                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                            text: frameType
+                            color: frameType === "DARK" ? "#6ea8fe"
+                                 : frameType === "FLAT" ? "#a3cfbb"
+                                 : frameType === "BIAS" ? "#e2a069"
+                                 : window.sysPal.windowText
+                            font.pixelSize: 13; font.bold: true
+                            verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                        }
+                    }
+                    Rectangle {
+                        width: root.colW[1]; height: 36; color: "transparent"
+                        Text {
+                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                            text: exposureTime !== undefined ? Number(exposureTime).toFixed(1) + "s" : ""
+                            color: window.sysPal.windowText; font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                        }
+                    }
+                    Rectangle {
+                        width: root.colW[2]; height: 36; color: "transparent"
+                        Text {
+                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                            text: gain; color: window.sysPal.windowText; font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                        }
+                    }
+                    Rectangle {
+                        width: root.colW[3]; height: 36; color: "transparent"
+                        Text {
+                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                            text: binning; color: window.sysPal.windowText; font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                        }
+                    }
+                    Rectangle {
+                        width: root.colW[4]; height: 36; color: "transparent"
+                        Text {
+                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                            text: sensorTemp; color: window.sysPal.windowText; font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                        }
+                    }
+                    Rectangle {
+                        width: root.colW[5]; height: 36; color: "transparent"
+                        Text {
+                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                            text: count !== undefined ? count : ""
+                            color: window.sysPal.windowText; font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
+                        }
+                    }
+                    Rectangle {
+                        width: root.colW[6]; height: 36; color: "transparent"
+                        Text {
+                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 4
+                            text: mostRecent; color: window.sysPal.windowText; font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
                         }
                     }
                 }
             }
         }
-        Text {
-            text: "No calibration frames found."
-            color: window.sysPal.placeholderText; font.pixelSize: 13
-            visible: root.rowCount === 0; width: parent.width
-        }
+        } // Item (scroll wrapper)
         Item { width: 1; height: 4 }
     }
 }

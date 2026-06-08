@@ -14,7 +14,7 @@ static const QStringList STACKING_SOFTWARE = {
     "autostakkert", "registax", "sequator", "starry landscape stacker"
 };
 
-static const QSet<QString> SCAN_SKIP_DIRS = { "stacked", "process", "darks", "flats", "bias" };
+static const QSet<QString> SCAN_SKIP_DIRS = { "stacked", "process", "darks", "flats", "bias", "rejected" };
 
 // - Convert scanned metadata entry objects into a QVariantMap for the QML model -
 QVariantMap MetadataEntry::toVariantMap() const
@@ -234,16 +234,21 @@ void FitsScanner::walkDirectory(const QString &dir, QList<MetadataEntry> &result
         }
 
         auto header = FitsParser::parseHeader(info.absoluteFilePath());
-        bool isStacked = metadataIndicatesStacking(header);
 
-        if (!isStacked) {
-            QString fname = info.fileName();
-            isStacked = fname.startsWith("Stacked_") || fname.startsWith("DSO_Stacked_");
+        // Detect frame type first so calibration frames are never discarded by
+        // the stacking heuristic — dark/flat/bias files are not stacked light frames.
+        auto [frameType, method] = detectFrameType(header, info.fileName());
+
+        bool isStacked = false;
+        if (frameType == "LIGHT") {
+            isStacked = metadataIndicatesStacking(header);
+            if (!isStacked) {
+                const QString &fname = info.fileName();
+                isStacked = fname.startsWith("Stacked_") || fname.startsWith("DSO_Stacked_");
+            }
         }
 
         if (isStacked) continue;
-
-        auto [frameType, method] = detectFrameType(header, info.fileName());
 
         MetadataEntry entry;
         entry.frameType = frameType;

@@ -118,14 +118,12 @@ install -Dm644 "$SCRIPT_DIR/fitsmetadataviewer.svg" \
 # FIX 2: appimagetool requires the .desktop file AND icon at the AppDir root
 cp "$SCRIPT_DIR/fitsmetadataviewer.desktop" "$APPDIR/fitsmetadataviewer.desktop"
 
-# AppStream metadata — suppresses appimagetool warning about missing metadata.
-# Place fitsmetadataviewer.appdata.xml in an appstream/ subdirectory to include it.
-APPDATA="$SCRIPT_DIR/appstream/fitsmetadataviewer.appdata.xml"
+# AppStream metadata — filename must match the component ID to pass appstreamcli validation.
+APPDATA="$SCRIPT_DIR/appstream/app.fitsmetadataviewer.FITSMetadataViewer.metainfo.xml"
 if [[ -f "$APPDATA" ]]; then
-    install -Dm644 "$APPDATA" "$APPDIR/usr/share/metainfo/fitsmetadataviewer.appdata.xml"
+    install -Dm644 "$APPDATA" "$APPDIR/usr/share/metainfo/app.fitsmetadataviewer.FITSMetadataViewer.metainfo.xml"
 else
-    warn "appstream/fitsmetadataviewer.appdata.xml not found — AppStream metadata will be missing."
-    warn "Create the appstream/ directory and add the file to suppress this warning."
+    warn "appstream/app.fitsmetadataviewer.FITSMetadataViewer.metainfo.xml not found — AppStream metadata will be missing."
 fi
 cp "$SCRIPT_DIR/fitsmetadataviewer.svg"     "$APPDIR/fitsmetadataviewer.svg"
 

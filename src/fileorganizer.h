@@ -28,11 +28,13 @@ public:
     Q_INVOKABLE void sirilPrep(const QString &dirPath);
     Q_INVOKABLE void removeEmptyFolders(const QString &dirPath);
     Q_INVOKABLE bool deleteFile(const QString &filePath);
+    Q_INVOKABLE QString rejectFile(const QString &filePath);
     Q_INVOKABLE void cancel();
 
 signals:
     void operationCompleted(const QVariantMap &result);
     void operationError(const QString &error);
+    void fileProcessed(const QString &message);
     void runningChanged();
     void progressChanged();
 

@@ -13,6 +13,14 @@ Rectangle {
     signal jpgScanned(var rows)
     signal jpgCleared()
 
+    // Expose advanced panel state and actions to the menu bar in main.qml
+    property alias advancedVisible: advancedPanel.visible
+    property alias jpgScanDone:     advancedPanel.jpgScanDone
+    property alias jpgCount:        advancedPanel.jpgCount
+
+    function logToConsole(msg) { advancedPanel.log(msg) }
+    function clearJpgData()    { advancedPanel.clearJpgData() }
+
     function setStatus(msg) { statusText.text = msg }
 
     Column {

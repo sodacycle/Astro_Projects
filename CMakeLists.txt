@@ -34,6 +34,8 @@ qt_add_qml_module(AstroDataViewer
         qml/CalibrationSummaryView.qml
         qml/FileDetailsView.qml
         qml/FitsImageViewer.qml
+        qml/FitsViewerManager.qml
+        qml/AboutDialog.qml
         qml/components/ProgressIndicator.qml
 )
 

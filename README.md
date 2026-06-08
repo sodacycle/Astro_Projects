@@ -32,10 +32,28 @@ A desktop application for scanning and inspecting FITS file metadata, built with
 
 Click on any file in the metadata table to open it in a dedicated dark-themed viewer window. Features include:
 
-- **Zoom controls** — zoom in/out, fit-to-window, and 1:1 pixel-perfect viewing
-- **Pan and scroll** — use mouse to drag and navigate large images
+**Navigation & Zoom:**
+- **Zoom controls** — zoom in/out (−/+), fit-to-window, and 1:1 pixel-perfect viewing
+- **Keyboard shortcuts** — arrow keys (← / →) to navigate between images in the current scan
+- **Pan and scroll** — use mouse to drag and navigate large images with centered panning
+- **File counter** — displays current image position (e.g., 15 / 247)
+
+**Image Processing & Display:**
+- **Asinh stretch** — adjustable stretch parameter ('a') to reveal faint details with control over aggressiveness
+- **Clipping control** — percentile-based clip level (90–99.9%) to manage bright outlier handling
+- **Denoising** — optional box blur (radius 0–5) to smooth noise without degrading star detail
+- **Live preview** — all adjustments apply in real-time; parameters persist across image navigation
+- **Reset button** — restore defaults (a=0.10, clip=99.0%, denoise=off) with one click
+
+**Image Quality Workflow:**
+- **Reject/Unreject** — mark individual images as rejected with a visual red X overlay
+- **Finalize rejected images** — batch-move all rejected images to a dedicated folder without modifying the original FITS data
+- **Live rejection counter** — displays how many images are marked for rejection
+
+**File Management & Safety:**
 - **Safe file handling** — gracefully handles compressed FITS, missing pixel data, and large files (512 MB safety limit)
-- **File deletion** — delete the viewed file directly from the viewer window
+- **File deletion** — permanently delete the viewed file directly from the viewer window with confirmation
+- **Full file path display** — shows complete path with tooltip hover
 
 ### Metadata and Filtering
 
@@ -48,11 +66,40 @@ The comprehensive metadata table displays detailed information for each FITS fil
 - **Image properties**: Filter, image type, frame type (light/dark/flat/bias)
 - **Processing**: Stacking software used
 
-**Smart filtering** lets you drill down into your data:
-- Filter by **target name** to see all exposures of a single object
-- Filter by **catalog** (Messier, NGC, IC, etc.) to explore specific regions
-- Click **calendar dates** to see observations from specific nights
-- **JPG integration** — scan for and manage preview images alongside FITS files
+**Interactive filtering and navigation:**
+- **Metadata table** — click any file row to open it in the FITS viewer
+- **Target filter** — select a target to see all exposures of that object
+- **Catalog filter** — filter by catalog (Messier, NGC, IC, Sharpless, Barnard, etc.) to explore specific regions
+- **Calendar** — click observation dates to view all images from that night; includes moon phase and weather data
+- **Temperature unit toggle** — click the °C / °F button in the calendar header to switch between Celsius and Fahrenheit
+- **Show All button** — appears after filtering to quickly restore the full list
+- **JPG integration** — scan for and view JPG preview files alongside FITS metadata
+
+### Target Summary
+
+A quick overview of all observation targets with aggregated statistics:
+
+- **Target names** — clickable rows to filter the metadata table to that target
+- **FITS file count** — total number of exposures for each target
+- **Total integration time** — combined exposure duration per target (useful for planning follow-up observations)
+
+### Calibration Frame Summary
+
+Automatically categorizes and groups calibration frames by type and settings:
+
+- **Grouped by type** — separate sections for dark frames, flat fields, and bias frames
+- **Settings-based grouping** — frames are grouped by temperature, binning, and other key parameters to help identify compatible calibration sets
+- **Frame counts** — displays total count of each calibration type for reference
+- **Easy identification** — quickly locate calibration frames matching your light frame parameters
+
+### Catalog Breakdown
+
+Organizes observations by astronomical catalog to explore your imaging data by region:
+
+- **Multiple catalogs supported** — Messier, NGC, IC, Caldwell, Sharpless, Barnard, LDN, LBN, Abell, PGC, UGC, and Other
+- **Smart parsing** — automatically detects catalog designations from target names in FITS headers
+- **Clickable filters** — select any catalog to filter the metadata table to those observations
+- **Ungrouped objects** — "Other" category captures objects not in standard catalogs
 
 ---
 
@@ -276,13 +323,15 @@ available backend automatically.
 
 The application includes powerful batch file operations accessible from the **Advanced Tools** panel:
 
-| Tool | Purpose | Use Case |
-|------|---------|----------|
-| **Organize Stacked Files** | Automatically detects and moves stacked FITS files into a `Stacked/` subfolder | Keep raw and processed files separate |
-| **Scan for JPG Files** | Recursively finds all `.jpg` files in the selected directory | Identify and manage preview images |
-| **Delete JPG Files** | Permanently remove JPG files after review (with confirmation prompt) | Clean up preview images to free space |
-| **Siril Prep** | Renames and organizes FITS files into the folder structure expected by Siril | Prepare data for preprocessing in Siril |
-| **Remove Empty Folders** | Cleans up empty directories left after file operations | Tidy up directory tree |
+| Tool | Purpose | Details |
+|------|---------|---------|
+| **Organize Stacked Files** | Automatically detects and moves stacked FITS files into a `Stacked/` subfolder | Identifies files by header keywords or filename prefix patterns |
+| **Scan for JPG Files** | Recursively finds all `.jpg` files in the selected directory and displays them in the File Details table | Allows selective management of preview images alongside FITS files |
+| **Delete JPG Files** | Permanently remove all found JPG files (with confirmation prompt) | Only appears after JPG scan completes; deletes entire batch at once |
+| **Siril Prep** | Renames and organizes FITS files into the folder structure expected by Siril preprocessing | Integrates directly with Siril's workflow; creates light/dark/flat/bias subfolders |
+| **Remove Empty Folders** | Cleans up empty directories left after file operations or manual deletions | Recursively removes empty folder hierarchies to tidy the directory tree |
+
+All operations display real-time progress in the console log panel and are non-destructive to the original FITS data (except file deletion operations, which require confirmation).
 
 ---
 
@@ -294,5 +343,6 @@ The application includes powerful batch file operations accessible from the **Ad
 - **Native file picker** — the application uses `QFileDialog` for directory selection, providing native KDE/GTK file pickers on supported desktops.
 - **Persistent settings** — temperature unit preference, last-used location, and other settings are stored via `QSettings` in the standard platform location (`~/.config/FITSMetadataViewer/` on Linux).
 - **Responsive UI** — all batch operations (scanning, organizing, deleting) run asynchronously with progress feedback and status updates.
+- **Helpful tooltips** — hover over buttons and controls to see contextual hints explaining their purpose and usage.
 - **Safe deletion** — file deletion operations require explicit confirmation before proceeding.
 - **This project** was rewritten from an Electron-based FITS metadata viewer into a native Qt/QML desktop application, improving performance and reducing resource usage.

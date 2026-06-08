@@ -32,21 +32,36 @@ Rectangle {
             font.pixelSize: 20; font.bold: true
             color: window.sysPal.windowText; width: parent.width
         }
-        Flow {
-            width: parent.width; spacing: 8
+        // Grid replaces Flow so every row contains the same number of chips
+        // (no ragged last-item wrapping).  Column count auto-adapts to the
+        // available width; chips stretch to fill the row exactly.
+        Grid {
+            id: catalogGrid
+            width: parent.width
             visible: root.rowCount > 0
+            // Minimum chip width before adding another column
+            readonly property int minChipW: 100
+            readonly property int gap: 8
+            columns: Math.max(1, Math.floor((width + gap) / (minChipW + gap)))
+            columnSpacing: gap
+            rowSpacing:    gap
+
             Repeater {
                 model: catalogModel
                 delegate: Rectangle {
                     required property var model
-                    width: 160; height: 36; radius: 6
+                    // Fill the row: divide available width equally after spacing
+                    width:  Math.floor((catalogGrid.width
+                                        - (catalogGrid.columns - 1) * catalogGrid.gap)
+                                       / catalogGrid.columns)
+                    height: 36; radius: 6
                     color: ma.containsMouse ? window.sysPal.highlight : window.sysPal.alternateBase
                     border.color: ma.containsMouse ? window.sysPal.highlight : window.sysPal.mid
                     border.width: 1
                     Row {
                         anchors.verticalCenter: parent.verticalCenter
-                        anchors.left:   parent.left
-                        anchors.right:  parent.right
+                        anchors.left:    parent.left
+                        anchors.right:   parent.right
                         anchors.margins: 8
                         spacing: 4
                         Text {

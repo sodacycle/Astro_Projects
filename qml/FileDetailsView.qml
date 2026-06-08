@@ -9,9 +9,12 @@ Rectangle {
     radius: 6
 
     property int rowCount: 0
-    property var allRows: []
-    property var displayRows: []
-    property bool _keepDisplay: false
+    property var    allRows: []
+    property var    displayRows: []
+    property bool   _keepDisplay: false
+
+    property string selectedFilePath: ""
+    property string selectedFileName: ""
 
     signal showAllRequested()
     signal fileOpenRequested(string path, string name)
@@ -27,7 +30,12 @@ Rectangle {
     property int totalW: { var w=0; for(var i=0;i<colW.length;i++) w+=colW[i]; return w }
 
     onAllRowsChanged: {
-        if (!_keepDisplay) { displayRows = allRows; showAllBtn.visible = false }
+        if (!_keepDisplay) {
+            displayRows = allRows
+            showAllBtn.visible = false
+            selectedFilePath = ""
+            selectedFileName  = ""
+        }
     }
 
     // Remove one row by file path without resetting any active filter
@@ -164,11 +172,14 @@ Rectangle {
                         required property int index
                         width: detailsList.width; height: 30
 
+                        readonly property bool isSelected: (modelData["Path"] || "") === root.selectedFilePath
+
                         Rectangle {
                             x: -pane.hOffset; width: root.totalW; height: parent.height
-                            color: rowMouse.containsMouse
+                            color: isSelected
                                    ? window.sysPal.highlight
-                                   : (index % 2 === 0 ? window.sysPal.alternateBase : "transparent")
+                                   : (rowMouse.containsMouse ? window.sysPal.highlight
+                                                             : (index % 2 === 0 ? window.sysPal.alternateBase : "transparent"))
                             radius: 2
                         }
                         Row {
@@ -182,7 +193,7 @@ Rectangle {
                                     Text {
                                         anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 4
                                         text: { var v = modelData[colKey]; return v !== undefined && v !== null ? v : "" }
-                                        color: rowMouse.containsMouse
+                                        color: (rowMouse.containsMouse || isSelected)
                                                ? window.sysPal.highlightedText
                                                : window.sysPal.windowText
                                         font.pixelSize: 12
@@ -198,10 +209,12 @@ Rectangle {
                             cursorShape: Qt.PointingHandCursor
                             ToolTip.visible: containsMouse
                             ToolTip.delay: 600
-                            ToolTip.text: "Click to open '" + (modelData["File"] || "") + "' in the FITS viewer"
+                            ToolTip.text: "Click to select and open '" + (modelData["File"] || "") + "' in the FITS viewer"
                             onClicked: {
                                 var p = modelData["Path"] || ""
                                 var n = modelData["File"] || ""
+                                root.selectedFilePath = p
+                                root.selectedFileName  = n
                                 if (p !== "") root.fileOpenRequested(p, n)
                             }
                         }
