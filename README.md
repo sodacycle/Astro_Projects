@@ -4,7 +4,8 @@ A desktop application for scanning and inspecting FITS file metadata, built with
 
 # Download Options:
 
-**Linux:** [AppImage](https://github.com/sodacycle/FITS-Metadata-Viewer/releases/download/untagged-6075881167b2eb2b7554/AstroDataViewer)
+**Linux:** [AppImage](https://github.com/sodacycle/FITS-Metadata-Viewer/releases/download/1.0_beta/AstroDataViewer)
+**SHA-256:** `f26ab61e93795700edca011fbb810a005f4bfd5a9c3ca133ded289fadb153f2f`
 
 ---
 
