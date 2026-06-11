@@ -1,5 +1,13 @@
 # FITS Metadata Viewer
 
+# Important
+
+This application has been replaced with [Meridian](https://github.com/sodacycle/Meridian) for all future builds and patches.
+
+  -Meridian contains the same features here but combined with a rewrite of [FITS Metadata Viewer](https://github.com/sodacycle/FITS-Metadata-Viewer) & [Astro Planner](https://github.com/sodacycle/Astro-Planner)
+
+# Description
+
 A cross-platform desktop application for scanning and analyzing FITS (Flexible Image Transport System) astronomy files. Built with Electron, this GUI tool extracts metadata from FITS headers and provides aggregated statistics by astronomical target, all without requiring Python or external FITS libraries.
 
 ## Features
