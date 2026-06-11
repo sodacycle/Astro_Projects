@@ -2,6 +2,12 @@
 
 A desktop application for scanning and inspecting FITS file metadata, built with Qt 6 and QML.
 
+# Important
+
+This application has been replaced with [Meridian](https://github.com/sodacycle/Meridian) for all future builds and patches.
+
+  -Meridian contains the same features here but combined with a rewrite of [FITS Metadata Viewer](https://github.com/sodacycle/FITS-Metadata-Viewer) & [Astro Planner](https://github.com/sodacycle/Astro-Planner)
+
 # Download Options:
 
 **Linux:** [AppImage](https://github.com/sodacycle/FITS-Metadata-Viewer/releases/download/1.0_beta/AstroDataViewer)
